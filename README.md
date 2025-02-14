@@ -1,6 +1,6 @@
-### Ferrite
+# Ferrite
 
 A creatively named chess engine.
 
-# Features:
+### Features:
 None.
