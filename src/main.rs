@@ -2,6 +2,7 @@ mod attacks;
 mod bitboard;
 mod board;
 mod heuristics;
+mod movegen;
 mod moves;
 mod piece;
 
