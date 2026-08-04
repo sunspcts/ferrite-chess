@@ -9,6 +9,9 @@ pub const PAWN_ATTACKS: [[Bitboard; 64]; 2] = gen_pawn_attacks();
 const KING_VECTORS: [i8; 8] = [8, 9, 1, -7, -8, -9, -1, 7];
 const KNIGHT_VECTORS: [i8; 8] = [17, 10, -6, -15, -17, -10, 6, 15];
 
+const A_FILE: u64 = 0x0101010101010101;
+const H_FILE: u64 = 0x8080808080808080;
+
 const fn gen_leaper_attacks(vectors: &[i8]) -> [Bitboard; 64] {
     let mut attacks = [Bitboard::zero(); 64];
     let mut sq: usize = 0;
@@ -43,10 +46,10 @@ const fn gen_pawn_attacks() -> [[Bitboard; 64]; 2] {
     while sq < 64 {
         let bb = 1u64 << sq;
 
-        let white_attacks = Bitboard::new(((bb & !0x0101010101010101) << 7) | ((bb & !0x8080808080808080) << 9));
+        let white_attacks = Bitboard::new(((bb & !A_FILE) << 7) | ((bb & !H_FILE) << 9));
         attacks[0][sq] = white_attacks;
         
-        let black_attacks = Bitboard::new(((bb & !0x8080808080808080) >> 7) | ((bb & !0x0101010101010101) >> 9));
+        let black_attacks = Bitboard::new(((bb & !H_FILE) >> 7) | ((bb & !A_FILE) >> 9));
         attacks[1][sq] = black_attacks;
         
         sq += 1;
