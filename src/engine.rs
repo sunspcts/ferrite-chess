@@ -25,12 +25,17 @@ pub fn engine() {
             Some("uci") => {
                 println!("id name {}", ENGINE_NAME);
                 println!("id author {}", ENGINE_AUTHOR);
-                println!("option name Hash type spin default 16 min 1 max 1024");
                 println!("uciok");
             }
             Some("isready") => println!("readyok"),
+            Some("ucinewgame") => {
+                board = Board::new_from_fen(STARTPOS_FEN);
+                hash_history = vec![board.game_state.curr_zobrist_key];
+            }
             Some("quit") => break,
             _ => {}
         }
     }
+
+    let _ = (board, hash_history);
 }

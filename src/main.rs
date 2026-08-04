@@ -1,5 +1,3 @@
-use crate::attacks::KNIGHT_ATTACKS;
-
 mod attacks;
 mod bitboard;
 mod board;
@@ -11,7 +9,6 @@ mod moves;
 mod piece;
 mod search;
 
-
 fn main() {
-
+    engine::engine();
 }
