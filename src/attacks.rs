@@ -1,4 +1,4 @@
-use crate::bitboard::Bitboard;
+use crate::{bitboard::Bitboard, board::Board};
 
 pub const KING_ATTACKS: [Bitboard; 64] = init_leaper_attacks(&DIR_OFFSETS);
 pub const KNIGHT_ATTACKS: [Bitboard; 64] = init_leaper_attacks(&KNIGHT_OFFSETS);
@@ -120,3 +120,38 @@ pub fn get_ray_attacks(sq: u16, dir: usize, occupancy: Bitboard) -> Bitboard {
     let shadow = RAYS[dir][blocker_sq as usize];
     ray ^ shadow
 }
+
+impl Board {
+    pub fn get_rook_attacks(&self, sq: u16, side: usize) -> Bitboard {
+        let dirs = [0,1,2,3];
+
+        let friendly_pieces = self.side_bb[side];
+        let enemy_pieces = self.side_bb[(side) ^ 1];
+        let occupancy = friendly_pieces | enemy_pieces;
+
+        let mut raw_attacks: Bitboard = Bitboard::zero();
+
+        for dir in dirs {
+            raw_attacks |= get_ray_attacks(sq, dir, occupancy)
+        }
+
+        raw_attacks
+    }
+
+    pub fn get_bishop_attacks(&self, sq: u16, side: usize) -> Bitboard {
+        let dirs = [4,5,6,7];
+
+        let friendly_pieces = self.side_bb[side];
+        let enemy_pieces = self.side_bb[(side) ^ 1];
+        let occupancy = friendly_pieces | enemy_pieces;
+
+        let mut raw_attacks: Bitboard = Bitboard::zero();
+
+        for dir in dirs {
+            raw_attacks |= get_ray_attacks(sq, dir, occupancy)
+        }
+
+        raw_attacks
+    }
+}
+

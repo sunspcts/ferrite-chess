@@ -2,7 +2,7 @@
 
 // CONSTANT VALUES
 
-use crate::{bitboard::Bitboard, piece::Piece};
+use crate::{attacks::{KING_ATTACKS, KNIGHT_ATTACKS, PAWN_ATTACKS}, bitboard::Bitboard, piece::Piece};
 
 pub const ZOBRIST_RANDOMS: [u64; 793] = init_zobrist_random_array();
 
@@ -47,6 +47,20 @@ pub struct GameState {
     move_counter: u16,
     pub en_passant_square: Option<u8>, //unfortunately, it's unprofessional to call this the holy_hell_square.
     pub curr_zobrist_key: u64,
+}
+
+impl GameState {
+    pub fn inc_halfmoves(&mut self) {
+        self.half_moves += 1
+    }
+
+    pub fn reset_halfmoves(&mut self) {
+        self.half_moves = 0
+    }
+
+    pub fn inc_count(&mut self) {
+        self.move_counter += 1
+    }
 }
 
 // SIDE ENUM
@@ -127,6 +141,37 @@ impl Board {
         None
     }
 
+    pub fn is_attacked(&self, square: u16, attacker_side: Side) -> bool {
+        let attacker = attacker_side as usize;
+        let defender = (attacker_side as usize) ^ 1;
+
+        let enemy_knights = self.piece_bb[attacker][Piece::Knight as usize];
+        if (KNIGHT_ATTACKS[square as usize] & enemy_knights) != Bitboard::zero() {
+            return true;
+        }
+
+        let enemy_king = self.piece_bb[attacker][Piece::King as usize];
+        if (KING_ATTACKS[square as usize] & enemy_king) != Bitboard::zero() {
+            return true;
+        }
+
+        let enemy_pawns = self.piece_bb[attacker][Piece::Pawn as usize];
+        if (PAWN_ATTACKS[defender][square as usize] & enemy_pawns) != Bitboard::zero() {
+            return true;
+        }
+
+        let diagonal_attackers = self.piece_bb[attacker][Piece::Bishop as usize] | self.piece_bb[attacker][Piece::Queen as usize];
+        if (self.get_bishop_attacks(square, defender) & diagonal_attackers) != Bitboard::zero() {
+            return true;
+        }
+
+        let orthogonal_attackers = self.piece_bb[attacker][Piece::Rook as usize] | self.piece_bb[attacker][Piece::Queen as usize];
+        if (self.get_rook_attacks(square, defender) & orthogonal_attackers) != Bitboard::zero() {
+            return true;
+        }
+        false
+    }
+
     fn recompute_zobrist_hash(&mut self) {
         let mut key = 0;
         for sq in 0..64 {
@@ -150,6 +195,31 @@ impl Board {
         }
 
         self.game_state.curr_zobrist_key = key
+    }
+
+    
+    pub fn update_castling_rights(&mut self, from_sq: u16, to_sq: u16) {
+        let old_castling = self.game_state.castling;
+        match from_sq {
+            4 => self.game_state.castling &= !3,
+            60 => self.game_state.castling &= !12,
+            7 => self.game_state.castling &= !1,
+            0 => self.game_state.castling &= !2,
+            63 => self.game_state.castling &= !4,
+            56 => self.game_state.castling &= !8,
+            _ => ()
+        }
+        match to_sq {
+            7 => self.game_state.castling &= !1,
+            0 => self.game_state.castling &= !2,
+            63 => self.game_state.castling &= !4,
+            56 => self.game_state.castling &= !8,
+            _ => ()
+        }
+        if self.game_state.castling != old_castling {
+            self.game_state.curr_zobrist_key ^= ZOBRIST_RANDOMS[768 + old_castling as usize];
+            self.game_state.curr_zobrist_key ^= ZOBRIST_RANDOMS[768 + self.game_state.castling as usize];
+        }
     }
 }
 
@@ -248,6 +318,7 @@ fn init_move_counter(fen_part_6: &str) -> u16 {
 
 // ZOBRIST HASHING
 
-fn get_piece_zobrist_index(piece: Piece, side: Side, sq: usize) -> usize {
+pub fn get_piece_zobrist_index(piece: Piece, side: Side, sq: usize) -> usize {
     ((piece as usize + side as usize * 6)) * 64 + sq
 }
+

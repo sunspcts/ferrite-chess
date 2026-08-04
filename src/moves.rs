@@ -1,4 +1,4 @@
-use crate::{board::Board, heuristics::*, piece::Piece};
+use crate::{bitboard::Bitboard, board::*, heuristics::*, piece::Piece};
 
 // Data field is structured as follows: 
 // First 4 bits encode any flags that make_move needs to know.
@@ -106,7 +106,138 @@ impl std::fmt::Display for Move {
 }
 
 impl Board {
-    pub fn make_move(&mut self, mv: Move) {
+    pub fn make(&self, mv: Move) -> Option<Board> {
+        let mut board = *self;
+        let side = board.game_state.active_side;
+        let enemy = side.flip();
+        let from = mv.from_sq();
+        let to = mv.to_sq();
+        let piece = board[from];
+        let flags = mv.flags();
 
+        if flags & 0b1110 == 0b0010 {
+            let transit_sq = match to {
+                2 => 3,   
+                6 => 5,   
+                58 => 59, 
+                62 => 61,
+                _ => unreachable!(),
+            };
+            if self.is_attacked(from, enemy) || self.is_attacked(transit_sq, enemy) {
+                return None;
+            }
+        }
+        
+        board.game_state.inc_halfmoves();
+        if let Some(old_ep_square) = board.game_state.en_passant_square {
+            board.game_state.curr_zobrist_key ^= ZOBRIST_RANDOMS[768 + 16 + (old_ep_square % 8) as usize];
+            board.game_state.en_passant_square = None;
+        }
+
+        if mv.is_capture() {
+            let captured_piece = board[to];
+            if captured_piece != Piece::None {
+                board.remove_piece(enemy, captured_piece, to);
+            }
+            board.game_state.reset_halfmoves();
+            if captured_piece == Piece::Rook {
+                board.update_castling_rights(255, to); //255 is a dummy value here!
+            }
+        }
+
+        if piece != Piece::Pawn {
+            board.move_piece(piece, side, from, to)
+        } else {
+            board.remove_piece(side, piece, from);
+            let piece_to_place = if mv.is_promo() {
+                promo_flag_parser(flags)
+            } else {
+                    Piece::Pawn
+            };
+
+            board.place_piece(side, piece_to_place, to);
+            board.game_state.reset_halfmoves();
+
+            if flags == move_flags::EP_CAPTURE {
+                board.remove_piece(enemy, Piece::Pawn, (to as u8 ^ 8) as u16);
+            }
+
+            if flags == move_flags::DOUBLE_PAWN_PUSH {
+                let ep_square = from as u8;
+                board.game_state.en_passant_square = Some(ep_square);
+                board.game_state.curr_zobrist_key ^= ZOBRIST_RANDOMS[768 + 16 + (ep_square % 8) as usize];
+            }
+        }
+
+        if piece == Piece::King || piece == Piece::Rook {
+            board.update_castling_rights(from, to);
+        } 
+
+        if flags & 0b1110 == 0b0010 {
+            match to {
+                2 => board.move_piece(Piece::Rook, side, 0, 3),
+                6 => board.move_piece(Piece::Rook, side, 7, 5),
+                58 => board.move_piece(Piece::Rook, side, 56, 59),
+                62 => board.move_piece(Piece::Rook, side, 63, 61),
+                _ => unreachable!()
+            }
+        }
+
+        if side == Side::Black {
+            board.game_state.inc_count();
+        }
+
+        board.game_state.active_side = enemy;
+        board.game_state.curr_zobrist_key ^= ZOBRIST_RANDOMS[768 + 16 + 8];
+        
+        let king_square = board.piece_bb[side as usize][Piece::King as usize].trailing_zeros() as u16;
+        let is_legal = !board.is_attacked(king_square, enemy);
+
+        if !is_legal {
+            return None
+        }
+
+        Some(board)
+    }
+
+    fn remove_piece(&mut self, side: Side, piece: Piece, sq: u16) {
+        let mask = Bitboard::one() << sq as usize;
+        let side_idx = side as usize;
+        let piece_idx = piece as usize;
+
+        self.piece_bb[side_idx][piece_idx] ^= mask;
+        self.side_bb[side_idx] ^= mask;
+        self[sq] = Piece::None;
+
+        let zobrist_idx = get_piece_zobrist_index(piece, side, sq as usize);
+        self.game_state.curr_zobrist_key ^= ZOBRIST_RANDOMS[zobrist_idx];
+
+    }
+
+    fn place_piece(&mut self, side: Side, piece: Piece, sq: u16) {
+        let mask = Bitboard::one() << sq as usize;
+        let side_idx = side as usize;
+        let piece_idx = piece as usize;
+        self.piece_bb[side_idx][piece_idx] |= mask;
+        self.side_bb[side_idx] |= mask;
+        self[sq] = piece;
+
+        let zobrist_idx = get_piece_zobrist_index(piece, side, sq as usize);
+        self.game_state.curr_zobrist_key ^= ZOBRIST_RANDOMS[zobrist_idx];
+    }
+
+    fn move_piece(&mut self, piece: Piece, side: Side, from: u16, to: u16) {
+        self.remove_piece(side, piece, from);
+        self.place_piece(side, piece, to);
+    }
+}
+
+fn promo_flag_parser(flag: u16) -> Piece {
+    match flag & 0b0011 {
+        0 => Piece::Knight,
+        1 => Piece::Bishop,
+        2 => Piece::Rook,
+        3 => Piece::Queen,
+        _ => unreachable!()
     }
 }

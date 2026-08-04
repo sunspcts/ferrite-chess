@@ -16,6 +16,7 @@ impl Board {
         self.generate_pawn_moves(&mut moves);
         self.generate_castling_moves(&mut moves);
 
+        // Might eventually move these loops into the methods.
         for king in self.piece_bb[side as usize][Piece::King as usize] {
             self.generate_leaper_moves(king, &mut moves, Piece::King);
         }
