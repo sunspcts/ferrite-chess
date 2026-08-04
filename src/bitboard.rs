@@ -10,15 +10,15 @@ impl Default for Bitboard {
 }
 
 impl Bitboard {
-    pub fn new(val: u64) -> Self {
+    pub const fn new(val: u64) -> Self {
         Bitboard(val)
     }
 
-    pub fn zero() -> Self {
+    pub const fn zero() -> Self {
         Bitboard(0)
     }
 
-    pub fn one() -> Self {
+    pub const fn one() -> Self {
         Bitboard(1)
     }
 }
