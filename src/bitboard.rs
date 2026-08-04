@@ -104,6 +104,16 @@ impl std::ops::Not for Bitboard {
     }
 }
 
+impl Bitboard {
+    pub fn trailing_zeros(&self) -> u32 {
+        self.0.trailing_zeros()
+    }
+
+    pub fn leading_zeros(&self) -> u32 {
+        self.0.leading_zeros()
+    }
+}
+
 impl Iterator for Bitboard {
     type Item = u16;
 

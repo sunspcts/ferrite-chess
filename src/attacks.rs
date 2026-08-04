@@ -102,3 +102,21 @@ const fn init_ray_lookup() -> [[Bitboard; 64]; 8] {
     }
     rays
 }
+
+pub fn get_ray_attacks(sq: u16, dir: usize, occupancy: Bitboard) -> Bitboard {
+    let ray = RAYS[dir][sq as usize];
+    let blockers = ray & occupancy;
+
+    if blockers == Bitboard::zero() {
+        return ray;
+    }
+
+    let blocker_sq = match dir {
+        0 | 2 | 4 | 5 => blockers.trailing_zeros(),
+        1 | 3 | 6 | 7 => 63 - blockers.leading_zeros(),
+        _ => unreachable!(),
+    };
+
+    let shadow = RAYS[dir][blocker_sq as usize];
+    ray ^ shadow
+}
