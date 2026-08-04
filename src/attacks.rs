@@ -1,9 +1,9 @@
 use crate::bitboard::Bitboard;
 
-pub const KING_ATTACKS: [Bitboard; 64] = gen_leaper_attacks(&DIR_OFFSETS);
-pub const KNIGHT_ATTACKS: [Bitboard; 64] = gen_leaper_attacks(&KNIGHT_OFFSETS);
-pub const PAWN_ATTACKS: [[Bitboard; 64]; 2] = gen_pawn_attacks();
-pub const RAYS: [[Bitboard; 64]; 8] = gen_ray_lookup();
+pub const KING_ATTACKS: [Bitboard; 64] = init_leaper_attacks(&DIR_OFFSETS);
+pub const KNIGHT_ATTACKS: [Bitboard; 64] = init_leaper_attacks(&KNIGHT_OFFSETS);
+pub const PAWN_ATTACKS: [[Bitboard; 64]; 2] = init_pawn_attacks();
+pub const RAYS: [[Bitboard; 64]; 8] = init_ray_lookup();
 
 const DIR_OFFSETS: [(i8, i8); 8] = [
     (1, 0),
@@ -30,7 +30,7 @@ const KNIGHT_OFFSETS: [(i8, i8); 8] = [
 const A_FILE: u64 = 0x0101010101010101;
 const H_FILE: u64 = 0x8080808080808080;
 
-const fn gen_leaper_attacks(offsets: &[(i8, i8)]) -> [Bitboard; 64] {
+const fn init_leaper_attacks(offsets: &[(i8, i8)]) -> [Bitboard; 64] {
     let mut attacks = [Bitboard::zero(); 64];
     let mut sq: usize = 0;
 
@@ -58,7 +58,7 @@ const fn gen_leaper_attacks(offsets: &[(i8, i8)]) -> [Bitboard; 64] {
     attacks
 }
 
-const fn gen_pawn_attacks() -> [[Bitboard; 64]; 2] {
+const fn init_pawn_attacks() -> [[Bitboard; 64]; 2] {
     let mut attacks = [[Bitboard::zero(); 64]; 2];
     let mut sq = 0;
     while sq < 64 {
@@ -76,7 +76,7 @@ const fn gen_pawn_attacks() -> [[Bitboard; 64]; 2] {
     attacks
 }
 
-const fn gen_ray_lookup() -> [[Bitboard; 64]; 8] {
+const fn init_ray_lookup() -> [[Bitboard; 64]; 8] {
     let mut rays = [[Bitboard::zero(); 64]; 8];
     let mut sq = 0;
     while sq < 64 {
