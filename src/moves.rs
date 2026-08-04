@@ -57,6 +57,18 @@ impl Move {
     pub fn score(self) -> i32 {
         self.ordering_score
     }
+
+    pub fn from_uci(board: &Board, uci_str: &str) -> Option<Move> {
+        let moves = board.generate_pseudolegal_moves();
+        for mv in moves {
+            if mv.to_string() == uci_str {
+                if board.make(mv).is_some() {
+                    return Some(mv);
+                }
+            }
+        }
+        None
+    }
 }
 
 // flags from https://www.chessprogramming.org/Encoding_Moves.
