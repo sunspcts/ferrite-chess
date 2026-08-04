@@ -27,8 +27,8 @@ fn negamax(board: &Board, mut context: SearchContext, env: &mut SearchEnv) -> i6
         return 0;
     }
 
-    if context.depth == 0 {
-        return eval(board);
+    if context.depth <= 0 {
+        return quiescense(board, context, env);
     }
 
     let mut moves = board.generate_pseudolegal_moves();
@@ -75,6 +75,50 @@ fn negamax(board: &Board, mut context: SearchContext, env: &mut SearchEnv) -> i6
     }
 
     max_score
+}
+
+fn quiescense(board: &Board, mut context: SearchContext, env: &mut SearchEnv) -> i64 {
+    env.nodes_visited += 1;
+    
+    let static_eval = eval(board);
+
+    let mut best_value = static_eval;
+
+    if best_value >= context.beta {
+        return best_value
+    }
+    if best_value > context.alpha {
+        context.alpha = best_value
+    }
+
+    let mut moves = board.generate_pseudolegal_moves();
+    moves.retain(|mv| mv.is_capture() || mv.is_promo());
+    moves.sort_by(|a, b| b.score().cmp(&a.score()));
+
+    for candidate_move in moves {
+        if let Some(next_board) = board.make(candidate_move) {
+            let next_context = SearchContext {
+                alpha: -context.beta,
+                beta: -context.alpha,
+                depth: 0,
+                ply: context.ply + 1,
+            };
+
+            let score = -quiescense(&next_board, next_context, env);
+
+            if score >= context.beta {
+                return score
+            }
+            if score >= best_value {
+                best_value = score
+            }
+            if score > context.alpha {
+                context.alpha = score;
+            }
+        }
+    }
+    0
+
 }
 
 pub fn search(board: &Board, depth: i64, env: &mut SearchEnv) -> (i64, Option<Move>) {
