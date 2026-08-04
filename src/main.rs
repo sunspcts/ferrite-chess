@@ -1,15 +1,16 @@
+use crate::attacks::KNIGHT_ATTACKS;
+
 mod attacks;
 mod bitboard;
 mod board;
+mod eval;
 mod heuristics;
 mod movegen;
 mod moves;
 mod piece;
+mod search;
 
 
 fn main() {
-    let square = 28;
-    for dir in 0..8 {
-        println!("{:?}", attacks::RAYS[dir][square])
-    }
+
 }

@@ -221,6 +221,21 @@ impl Board {
             self.game_state.curr_zobrist_key ^= ZOBRIST_RANDOMS[768 + self.game_state.castling as usize];
         }
     }
+
+    pub fn is_in_check(&self) -> bool {
+        let side = self.game_state.active_side;
+        let king_bb = self.piece_bb[side as usize][Piece::King as usize];
+        let king_square = king_bb.trailing_zeros() as u16;
+
+        self.is_attacked(king_square, side.flip())
+    }
+
+    pub fn side_to_move_multiplier(&self) -> i64 {
+        match self.game_state.active_side {
+            Side::White => 1,
+            Side::Black => -1
+        }
+    }
 }
 
 // FEN PARSING

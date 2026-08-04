@@ -112,6 +112,10 @@ impl Bitboard {
     pub fn leading_zeros(&self) -> u32 {
         self.0.leading_zeros()
     }
+
+    pub fn count_ones(&self) -> u32 {
+        self.0.count_ones()
+    }
 }
 
 impl Iterator for Bitboard {
