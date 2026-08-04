@@ -133,8 +133,8 @@ impl Board {
         } else {
             single_pushes = (pawns >> 8) & empty;
             double_pushes = ((single_pushes & RANK_6_BB) >> 8) & empty;
-            captures_left = ((pawns & !A_FILE_BB) >> 7) & attackables;
-            captures_right = ((pawns & !H_FILE_BB) >> 9) & attackables;
+            captures_left = ((pawns & !A_FILE_BB) >> 9) & attackables;
+            captures_right = ((pawns & !H_FILE_BB) >> 7) & attackables;
         }
 
         let promotion_bb = PROMOTION_RANKS_BB;
@@ -154,7 +154,7 @@ impl Board {
         let (offset_push, offset_cap_left, offset_cap_right) = if side == Side::White {
             (8, 7, 9)
         } else {
-            (-8, -7, -9)
+            (-8, -9, -7)
         };
 
         //Lots of cases!

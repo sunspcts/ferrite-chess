@@ -163,7 +163,7 @@ impl Board {
             }
 
             if flags == move_flags::DOUBLE_PAWN_PUSH {
-                let ep_square = from as u8;
+                let ep_square = ((from + to) / 2) as u8;
                 board.game_state.en_passant_square = Some(ep_square);
                 board.game_state.curr_zobrist_key ^= ZOBRIST_RANDOMS[768 + 16 + (ep_square % 8) as usize];
             }
@@ -230,6 +230,25 @@ impl Board {
         self.remove_piece(side, piece, from);
         self.place_piece(side, piece, to);
     }
+
+    #[cfg(test)]
+    pub fn perft(&self, depth: u8) -> u64 {
+        if depth == 0 {
+            return 1;
+        }
+
+        let mut nodes = 0;
+        let moves = self.generate_pseudolegal_moves();
+
+        for m in moves {
+            if let Some(next_board) = self.make(m) {
+                nodes += next_board.perft(depth - 1);
+            }
+        }
+
+        nodes
+    }
+
 }
 
 fn promo_flag_parser(flag: u16) -> Piece {
@@ -239,5 +258,20 @@ fn promo_flag_parser(flag: u16) -> Piece {
         2 => Piece::Rook,
         3 => Piece::Queen,
         _ => unreachable!()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn perft_startpos() {
+        let board = Board::new_from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+        assert_eq!(board.perft(1), 20);
+        assert_eq!(board.perft(2), 400);
+        assert_eq!(board.perft(3), 8902);
+        assert_eq!(board.perft(4), 197281);
+        assert_eq!(board.perft(5), 4865609);
     }
 }

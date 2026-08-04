@@ -295,17 +295,16 @@ fn init_castling_rights(fen_part_3: &str) -> u8 {
 }
 
 fn init_ep_square(fen_part_4: &str) -> Option<u8> {
-    let en_passant_file = if fen_part_4 == "-" {
+    if fen_part_4 == "-" {
         None 
     } else {
         let mut chars = fen_part_4.chars();
         let file_char = chars.next().unwrap();
         let file = file_char as u8 - b'a';
-        let rank = chars.next().unwrap() as u8 - 48;
-        Some(file)
-    };
-
-    en_passant_file
+        let rank_char = chars.next().unwrap();
+        let rank = rank_char as u8 - b'1';
+        Some(rank * 8 + file)
+    }
 }
 
 fn init_halfmoves(fen_part_5: &str) -> u8 {
