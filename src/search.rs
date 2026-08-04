@@ -1,10 +1,14 @@
+use std::sync::{Arc, atomic::{AtomicBool, Ordering}};
+
 use crate::{board::Board, eval::eval, moves::Move};
 const MATE_EVAL: i64 = 30000;
+const NODE_CHECK_INTERVAL_MASK: u64 = 2047; // Check search control every 2048 nodes
 
 // Holds global search variables shared across the recursion
 pub struct SearchEnv {
     pub nodes_visited: u64,
-    pub hash_history: Vec<u64>
+    pub hash_history: Vec<u64>,
+    pub search_control: SearchControl
 }
 
 impl SearchEnv {
@@ -20,8 +24,32 @@ struct SearchContext {
     pub depth: i64,
 } 
 
+#[derive(Clone)]
+pub struct SearchControl {
+    pub stop: Arc<AtomicBool>,
+}
+
+impl SearchControl {
+    pub fn new() -> Self {
+        SearchControl { stop: Arc::new(AtomicBool::new(false)) }
+    }
+
+    pub fn is_stopped(&self) -> bool {
+        self.stop.load(Ordering::Relaxed)
+    }
+
+    pub fn stop(&self) {
+        self.stop.store(true, Ordering::Relaxed);
+    }
+}
+
+
 fn negamax(board: &Board, mut context: SearchContext, env: &mut SearchEnv) -> i64 {
     env.nodes_visited += 1;
+
+    if (env.nodes_visited & NODE_CHECK_INTERVAL_MASK == 0) && env.search_control.is_stopped() {
+        return 0;
+    }
 
     if context.ply > 0 && env.is_repetition(board.game_state.curr_zobrist_key) {
         return 0;
@@ -52,6 +80,10 @@ fn negamax(board: &Board, mut context: SearchContext, env: &mut SearchEnv) -> i6
             let score = -negamax(&next_board, next_context, env);
             env.hash_history.pop();
 
+            if env.search_control.is_stopped() {
+                return 0;
+            }
+
             if score > max_score {
                 max_score = score;
             }
@@ -79,16 +111,20 @@ fn negamax(board: &Board, mut context: SearchContext, env: &mut SearchEnv) -> i6
 
 fn quiescense(board: &Board, mut context: SearchContext, env: &mut SearchEnv) -> i64 {
     env.nodes_visited += 1;
+
+    if (env.nodes_visited & NODE_CHECK_INTERVAL_MASK == 0) && env.search_control.is_stopped() {
+        return 0;
+    }
     
     let static_eval = eval(board);
 
     let mut best_value = static_eval;
 
     if best_value >= context.beta {
-        return best_value
+        return best_value;
     }
     if best_value > context.alpha {
-        context.alpha = best_value
+        context.alpha = best_value;
     }
 
     let mut moves = board.generate_pseudolegal_moves();
@@ -106,19 +142,22 @@ fn quiescense(board: &Board, mut context: SearchContext, env: &mut SearchEnv) ->
 
             let score = -quiescense(&next_board, next_context, env);
 
+            if env.search_control.is_stopped() {
+                return 0;
+            }
+
             if score >= context.beta {
-                return score
+                return score;
             }
             if score >= best_value {
-                best_value = score
+                best_value = score;
             }
             if score > context.alpha {
                 context.alpha = score;
             }
         }
     }
-    0
-
+    best_value
 }
 
 pub fn search(board: &Board, depth: i64, env: &mut SearchEnv) -> (i64, Option<Move>) {
@@ -131,6 +170,10 @@ pub fn search(board: &Board, depth: i64, env: &mut SearchEnv) -> (i64, Option<Mo
     let beta = 1_000_000;
 
     for candidate_move in moves {
+        if env.search_control.is_stopped() {
+            break;
+        }
+
         if let Some(next_board) = board.make(candidate_move) {
             let context = SearchContext {
                 alpha: -beta,
@@ -142,6 +185,10 @@ pub fn search(board: &Board, depth: i64, env: &mut SearchEnv) -> (i64, Option<Mo
             env.hash_history.push(board.game_state.curr_zobrist_key);
             let score = -negamax(&next_board, context, env);
             env.hash_history.pop();
+
+            if env.search_control.is_stopped() {
+                break;
+            }
 
             if score > max_score {
                 max_score = score;
