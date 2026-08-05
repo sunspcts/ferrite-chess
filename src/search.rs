@@ -332,6 +332,10 @@ impl TT {
         }                                                                                                                                                                                                           
     }
 
+    pub fn clear(&mut self) {
+        self.entries.fill(None);
+    }
+
     pub fn get(&self, zobrist_key: u64) -> Option<TTEntry> {
         let index = (zobrist_key as usize) % self.entries.len();
         if let Some(entry) = self.entries[index] {
@@ -344,6 +348,11 @@ impl TT {
 
     pub fn store(&mut self, entry: TTEntry) {
         let index = (entry.zobrist_key as usize) % self.entries.len();
+        if let Some(existing) = self.entries[index] {
+            if existing.zobrist_key == entry.zobrist_key && existing.depth > entry.depth {
+                return;
+            }
+        }
         self.entries[index] = Some(entry);
     }
 }
