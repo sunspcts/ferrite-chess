@@ -28,16 +28,40 @@ pub fn engine() {
                 println!("uciok");
             }
             Some("isready") => println!("readyok"),
+            Some("position") => {
+                stop_search(&mut search_thread, &mut search_control);
+                (board, hash_history) = parse_uci_position(board, line);
+            }
             Some("ucinewgame") => {
+                stop_search(&mut search_thread, &mut search_control);
                 board = Board::new_from_fen(STARTPOS_FEN);
                 hash_history = vec![board.game_state.curr_zobrist_key];
             }
-            Some("quit") => break,
+            Some("stop") => {
+                stop_search(&mut search_thread, &mut search_control);
+                if let Some(handle) = search_thread.take() {
+                    let _ = handle.join();
+                }
+            }
+            Some("quit") => {
+                stop_search(&mut search_thread, &mut search_control);
+                if let Some(handle) = search_thread.take() {
+                    let _ = handle.join();
+                }
+                break;
+            }
             _ => {}
         }
     }
 
     let _ = (board, hash_history);
+}
+
+pub fn stop_search(search_thread: &mut Option<thread::JoinHandle<()>>, search_control: &mut SearchControl) {
+    search_control.stop();
+    if let Some(handle) = search_thread.take() {
+        let _ = handle.join();
+    }
 }
 
 fn parse_uci_position(curr_board: Board, line: &str) -> (Board, Vec<u64>) {
@@ -52,7 +76,7 @@ fn parse_uci_position(curr_board: Board, line: &str) -> (Board, Vec<u64>) {
         let fen = fen_parts.join(" ");
         board = Board::new_from_fen(&fen);
     } else if mode == Some("startpos") {
-        Board::new_from_fen(STARTPOS_FEN);
+        board = Board::new_from_fen(STARTPOS_FEN);
     }
 
     let mut hash_history = vec![board.game_state.curr_zobrist_key];
