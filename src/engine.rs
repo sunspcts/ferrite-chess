@@ -1,10 +1,10 @@
-use std::{io::{self, BufRead}, thread};
+use std::{io::{self, BufRead}, sync::atomic::Ordering, thread, time::Duration};
 
-use crate::{board::Board, moves::Move, search::SearchControl};
+use crate::{board::{Board, Side}, moves::Move, search::{search, SearchControl, SearchEnv}};
 
 const ENGINE_NAME: &str = "Ferrite";
 const ENGINE_AUTHOR: &str = "sunspcts";
-
+const DEFAULT_DEPTH: i64 = 8;
 const STARTPOS_FEN: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
 pub fn engine() {
@@ -36,6 +36,57 @@ pub fn engine() {
                 stop_search(&mut search_thread, &mut search_control);
                 board = Board::new_from_fen(STARTPOS_FEN);
                 hash_history = vec![board.game_state.curr_zobrist_key];
+            }
+            Some("go") => {
+                stop_search(&mut search_thread, &mut search_control);
+                search_control = SearchControl::new();
+                let params = GoParameters::new(line);
+                let max_depth = params.depth.unwrap_or(
+                    if params.wtime.is_some() || params.btime.is_some() || params.movetime.is_some() || params.infinite || params.nodes.is_some() {
+                        200
+                    } else {
+                        DEFAULT_DEPTH
+                    }
+                );
+
+                let search_time = calculate_search_time(&board, &params);
+
+                if let Some(time_ms) = search_time {
+                    let stop_clone = search_control.stop.clone();
+                    thread::spawn(move || {
+                        thread::sleep(Duration::from_millis(time_ms));
+                        stop_clone.store(true, Ordering::Relaxed);
+                    });
+                }
+
+                let new_board = board;
+                let new_history = hash_history.clone();
+                let new_control = search_control.clone();
+
+                search_thread = Some(thread::spawn(move || {
+                    let mut env = SearchEnv {
+                        nodes_visited: 0,
+                        hash_history: new_history,
+                        search_control: new_control,
+                    };
+
+                    let (_score, best_move) = search(&new_board, max_depth, &mut env);
+
+                    if let Some(mv) = best_move {
+                        println!("bestmove {}", mv);
+                    } else {
+                        let fallback = new_board
+                            .generate_pseudolegal_moves()
+                            .into_iter()
+                            .find(|m| new_board.make(*m).is_some());
+
+                        if let Some(mv) = fallback {
+                            println!("bestmove {}", mv);
+                        } else {
+                            println!("bestmove (none)");
+                        }
+                    }
+                }));
             }
             Some("stop") => {
                 stop_search(&mut search_thread, &mut search_control);
@@ -76,72 +127,97 @@ struct GoParameters {
     infinite: bool
 }
 
-// Handles all possible go parameters
-fn parse_go(line: &str) -> GoParameters {
-    let mut parts = line.split_whitespace();
-    
-    let mut params = GoParameters::default();
+impl GoParameters {
+    fn new(line: &str) -> GoParameters {
+        let mut parts = line.split_whitespace();
+        
+        let mut params = Self::default();
 
-    while let Some(part) = parts.next() {
-        match part {
-            "depth" => {
-                if let Some(val) = parts.next() {
-                    if let Ok(parsed) = val.parse::<i64>() {
-                        params.depth = Some(parsed);
+        while let Some(part) = parts.next() {
+            match part {
+                "depth" => {
+                    if let Some(val) = parts.next() {
+                        if let Ok(parsed) = val.parse::<i64>() {
+                            params.depth = Some(parsed);
+                        }
                     }
                 }
-            }
-            "movetime" => {
-                if let Some(val) = parts.next() {
-                    if let Ok(parsed) = val.parse::<u64>() {
-                        params.movetime = Some(parsed);
+                "movetime" => {
+                    if let Some(val) = parts.next() {
+                        if let Ok(parsed) = val.parse::<u64>() {
+                            params.movetime = Some(parsed);
+                        }
                     }
                 }
-            }
-            "nodes" => {
-                if let Some(val) = parts.next() {
-                    if let Ok(parsed) = val.parse::<u64>() {
-                        params.nodes = Some(parsed);
+                "nodes" => {
+                    if let Some(val) = parts.next() {
+                        if let Ok(parsed) = val.parse::<u64>() {
+                            params.nodes = Some(parsed);
+                        }
                     }
                 }
-            }
-            "wtime" => {
-                if let Some(val) = parts.next() {
-                    if let Ok(parsed) = val.parse::<u64>() {
-                        params.wtime = Some(parsed);
+                "wtime" => {
+                    if let Some(val) = parts.next() {
+                        if let Ok(parsed) = val.parse::<u64>() {
+                            params.wtime = Some(parsed);
+                        }
                     }
                 }
-            }
-            "btime" => {
-                if let Some(val) = parts.next() {
-                    if let Ok(parsed) = val.parse::<u64>() {
-                        params.btime = Some(parsed);
+                "btime" => {
+                    if let Some(val) = parts.next() {
+                        if let Ok(parsed) = val.parse::<u64>() {
+                            params.btime = Some(parsed);
+                        }
                     }
                 }
-            }
-            "winc" => {
-                if let Some(val) = parts.next() {
-                    if let Ok(parsed) = val.parse::<u64>() {
-                        params.winc = Some(parsed);
+                "winc" => {
+                    if let Some(val) = parts.next() {
+                        if let Ok(parsed) = val.parse::<u64>() {
+                            params.winc = Some(parsed);
+                        }
                     }
                 }
-            }
-            "binc" => {
-                if let Some(val) = parts.next() {
-                    if let Ok(parsed) = val.parse::<u64>() {
-                        params.binc = Some(parsed);
+                "binc" => {
+                    if let Some(val) = parts.next() {
+                        if let Ok(parsed) = val.parse::<u64>() {
+                            params.binc = Some(parsed);
+                        }
                     }
                 }
+                "infinite" => params.infinite = true,
+                _ => {}
+                
             }
-            "infinite" => params.infinite = true,
-            _ => {}
-            
         }
-    }
 
-    params
+        params
+    }
 }
 
+fn calculate_search_time(board: &Board, params: &GoParameters) -> Option<u64> {
+    if params.infinite {
+        return None;
+    }
+    if let Some(mt) = params.movetime {
+        return Some(mt);
+    }
+
+    let time_remaining = match board.game_state.active_side {
+        Side::White => params.wtime,
+        Side::Black => params.btime,
+    };
+
+    let inc = match board.game_state.active_side {
+        Side::White => params.winc,
+        Side::Black => params.binc,
+    }.unwrap_or(0);
+
+    if let Some(t) = time_remaining{
+        return Some(t / 20 + inc / 2)
+    }
+
+    None
+}
 fn parse_uci_position(curr_board: Board, line: &str) -> (Board, Vec<u64>) {
     let mut parts = line.split_whitespace();
     let mut board = curr_board;
