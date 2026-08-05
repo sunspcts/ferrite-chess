@@ -253,6 +253,7 @@ pub fn search(board: &Board, max_depth: i64, env: &mut SearchEnv) -> (i64, Optio
     (global_best_score, global_best_move)
 }
 
+#[derive(Clone, Copy)]
 struct TTEntry {
     zobrist_key: u64,
     best_move: Option<Move>,
@@ -265,6 +266,30 @@ struct TT {
     entries: Vec<Option<TTEntry>>
 }
 
+impl TT {                                                                                                                                                                                                           
+    pub fn new(num_entries: usize) -> Self {                                                                                                                                                                        
+        TT {                                                                                                                                                                                                        
+            entries: vec![None; num_entries],                                                                                                                                                                       
+        }                                                                                                                                                                                                           
+    }
+
+    pub fn get(&self, zobrist_key: u64) -> Option<TTEntry> {
+        let index = (zobrist_key as usize) % self.entries.len();
+        if let Some(entry) = self.entries[index] {
+            if entry.zobrist_key == zobrist_key {
+                return Some(entry)
+            }
+        }
+        None
+    }
+
+    pub fn store(&mut self, entry: TTEntry) {
+        let index = (entry.zobrist_key as usize) % self.entries.len();
+        self.entries[index] = Some(entry)
+    }
+}
+
+#[derive(Clone, Copy)]
 enum NodeType {
     Exact,
     LowerBound,
