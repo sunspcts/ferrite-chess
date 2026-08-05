@@ -39,7 +39,7 @@ const fn xorshift(mut state: u64) -> u64 {
 
 // STATE STRUCT
 
-#[derive (Clone, Copy)]
+#[derive (Clone, Copy, Debug, PartialEq)]
 pub struct GameState {
     pub active_side: Side,
     pub castling: u8,
@@ -83,7 +83,7 @@ impl Side {
 
 // BOARD STRUCT
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Board {
     pub piece_bb: [[Bitboard; 6]; 2],
     pub side_bb: [Bitboard; 2],

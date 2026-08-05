@@ -71,3 +71,20 @@ fn parse_uci_position(curr_board: Board, line: &str) -> (Board, Vec<u64>) {
     }
     (board, hash_history)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_uci_position_from_startpos() {
+        let startpos_board = Board::new_from_fen(STARTPOS_FEN);
+        //Scotch my beloved <3
+        let (board, _) = parse_uci_position(startpos_board, "position startpos moves e2e4 e7e5 g1f3 b8c6 d2d4");
+        let fen_board = Board::new_from_fen("r1bqkbnr/pppp1ppp/2n5/4p3/3PP3/5N2/PPP2PPP/RNBQKB1R b KQkq d3 0 3"); 
+
+        assert_eq!(board, fen_board)
+    }
+
+    
+}
