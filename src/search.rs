@@ -76,7 +76,22 @@ fn negamax(board: &Board, mut context: SearchContext, env: &mut SearchEnv) -> i6
     }
 
 
-    let tt_move = env.tt.get(board.game_state.curr_zobrist_key).and_then(|e| e.best_move);
+    let tt_entry = env.tt.get(board.game_state.curr_zobrist_key);
+    let tt_move = tt_entry.and_then(|e| e.best_move);
+
+    if context.ply > 0 {
+        if let Some(entry) = tt_entry {
+            if entry.depth >= context.depth {
+                match entry.node_type {
+                    NodeType::Exact => return entry.score,
+                    NodeType::LowerBound if entry.score >= context.beta => return entry.score,
+                    NodeType::UpperBound if entry.score <= context.alpha => return entry.score,
+                    _ => {}
+                }
+            }
+        }
+    }
+
     let mut moves = board.generate_pseudolegal_moves();
     moves.sort_by(|a, b| {
         let score_a = if Some(*a) == tt_move { i32::MAX } else { a.score() };
@@ -131,10 +146,10 @@ fn negamax(board: &Board, mut context: SearchContext, env: &mut SearchEnv) -> i6
         }
     }
 
-    let node_type = if max_score > context.beta {
+    let node_type = if max_score >= context.beta {
         NodeType::LowerBound
     } else if max_score > old_alpha {
-        NodeType:: Exact
+        NodeType::Exact
     } else {
         NodeType::UpperBound
     };
