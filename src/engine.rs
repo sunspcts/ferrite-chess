@@ -1,10 +1,11 @@
-use std::{io::{self, BufRead}, sync::atomic::Ordering, thread, time::Duration};
+use std::{io::{self, BufRead}, sync::{Arc, Mutex, atomic::Ordering}, thread, time::Duration};
 
 use crate::{board::{Board, Side}, moves::Move, search::{SearchControl, SearchEnv, TT, search}};
 
 const ENGINE_NAME: &str = "Ferrite";
 const ENGINE_AUTHOR: &str = "sunspcts";
 const DEFAULT_DEPTH: i64 = 8;
+const DEFAULT_HASH_MB: usize = 16;
 const STARTPOS_FEN: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
 pub fn engine() {
@@ -13,6 +14,7 @@ pub fn engine() {
     let mut hash_history = vec![board.game_state.curr_zobrist_key];
     let mut search_control = SearchControl::new();
     let mut search_thread: Option<thread::JoinHandle<()>> = None;
+    let tt = Arc::new(Mutex::new(TT::new(DEFAULT_HASH_MB)));
 
     for line in stdin.lock().lines() {
         let line = line.unwrap_or_default();
@@ -25,9 +27,21 @@ pub fn engine() {
             Some("uci") => {
                 println!("id name {}", ENGINE_NAME);
                 println!("id author {}", ENGINE_AUTHOR);
+                println!("option name Hash type spin default {} min 1 max 1024", DEFAULT_HASH_MB);
                 println!("uciok");
             }
             Some("isready") => println!("readyok"),
+            Some("setoption") => {
+                stop_search(&mut search_thread, &mut search_control);
+                if let Some((name, value)) = parse_setoption(line) {
+                    if name.eq_ignore_ascii_case("hash") {
+                        if let Ok(mb) = value.parse::<usize>() {
+                            let mb = mb.clamp(1, 1024);
+                            *tt.lock().unwrap() = TT::new(mb);
+                        }
+                    }
+                }
+            }
             Some("position") => {
                 stop_search(&mut search_thread, &mut search_control);
                 (board, hash_history) = parse_uci_position(board, line);
@@ -36,6 +50,7 @@ pub fn engine() {
                 stop_search(&mut search_thread, &mut search_control);
                 board = Board::new_from_fen(STARTPOS_FEN);
                 hash_history = vec![board.game_state.curr_zobrist_key];
+                tt.lock().unwrap().clear();
             }
             Some("go") => {
                 stop_search(&mut search_thread, &mut search_control);
@@ -257,6 +272,19 @@ fn parse_uci_position(curr_board: Board, line: &str) -> (Board, Vec<u64>) {
         }
     }
     (board, hash_history)
+}
+
+fn parse_setoption(line: &str) -> Option<(String, String)> {
+    let parts: Vec<&str> = line.split_whitespace().collect();
+    let name_idx = parts.iter().position(|&p| p.eq_ignore_ascii_case("name"))?;
+    let value_idx = parts.iter().position(|&p| p.eq_ignore_ascii_case("value"))?;
+
+    if name_idx < value_idx && name_idx + 1 < parts.len() {
+        let name = parts[name_idx + 1..value_idx].join(" ");
+        let value = parts[value_idx + 1..].join(" ");
+        return Some((name, value));
+    }
+    None
 }
 
 #[cfg(test)]
