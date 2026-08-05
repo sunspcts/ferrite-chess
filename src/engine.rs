@@ -15,6 +15,7 @@ pub fn engine() {
     let mut search_control = SearchControl::new();
     let mut search_thread: Option<thread::JoinHandle<()>> = None;
     let tt = Arc::new(Mutex::new(TT::new(DEFAULT_HASH_MB)));
+    let mut current_age: u8 = 0;
 
     for line in stdin.lock().lines() {
         let line = line.unwrap_or_default();
@@ -50,11 +51,13 @@ pub fn engine() {
                 stop_search(&mut search_thread, &mut search_control);
                 board = Board::new_from_fen(STARTPOS_FEN);
                 hash_history = vec![board.game_state.curr_zobrist_key];
+                current_age = 0;
                 tt.lock().unwrap().clear();
             }
             Some("go") => {
                 stop_search(&mut search_thread, &mut search_control);
                 search_control = SearchControl::new();
+                current_age = current_age.wrapping_add(1);
                 let params = GoParameters::new(line);
                 let max_depth = params.depth.unwrap_or(
                     if params.wtime.is_some() || params.btime.is_some() || params.movetime.is_some() || params.infinite || params.nodes.is_some() {
@@ -80,6 +83,7 @@ pub fn engine() {
 
                 let node_limit = params.nodes.unwrap_or(u64::MAX);
                 let tt_clone = tt.clone();
+                let search_age = current_age;
 
                 search_thread = Some(thread::spawn(move || {
                     let mut tt_guard = tt_clone.lock().unwrap();
@@ -89,6 +93,7 @@ pub fn engine() {
                         hash_history: new_history,
                         search_control: new_control,
                         stopped: false,
+                        age: search_age,
                         tt: &mut *tt_guard,
                     };
 

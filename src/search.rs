@@ -11,6 +11,7 @@ pub struct SearchEnv<'a> {
     pub hash_history: Vec<u64>,
     pub search_control: SearchControl,
     pub stopped: bool,
+    pub age: u8,
     pub tt: &'a mut TT,
 }
 
@@ -162,7 +163,7 @@ fn negamax(board: &Board, mut context: SearchContext, env: &mut SearchEnv) -> i6
             move_data: best_move.map(|m| m.data()).unwrap_or(0),
             depth: context.depth as i8,
             node_type,
-            age: 0,
+            age: env.age,
         });
     }
 
@@ -278,7 +279,7 @@ fn search_fixed_depth(board: &Board, depth: i64, env: &mut SearchEnv) -> (i64, O
             move_data: best_move.map(|m| m.data()).unwrap_or(0),
             depth: depth as i8,
             node_type: NodeType::Exact,
-            age: 0,
+            age: env.age,
         });
     }
 
@@ -374,8 +375,15 @@ impl TT {
         let index = (entry.zobrist_key as usize) % self.entries.len();
         let existing = self.entries[index];
         if existing.node_type != NodeType::None {
-            if existing.zobrist_key == entry.zobrist_key && existing.depth > entry.depth {
-                return;
+            if existing.zobrist_key == entry.zobrist_key {
+                if existing.depth > entry.depth {
+                    return;
+                }
+            } else {
+                let is_stale = existing.age != entry.age;
+                if !is_stale && existing.depth > entry.depth {
+                    return;
+                }
             }
         }
         self.entries[index] = entry;
