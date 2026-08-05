@@ -75,6 +75,7 @@ fn negamax(board: &Board, mut context: SearchContext, env: &mut SearchEnv) -> i6
         return quiescense(board, context, env);
     }
 
+
     let tt_move = env.tt.get(board.game_state.curr_zobrist_key).and_then(|e| e.best_move);
     let mut moves = board.generate_pseudolegal_moves();
     moves.sort_by(|a, b| {
@@ -86,6 +87,7 @@ fn negamax(board: &Board, mut context: SearchContext, env: &mut SearchEnv) -> i6
     let mut legal_moves_count = 0;
     let mut max_score = i64::MIN;
     let mut best_move = None;
+    let old_alpha = context.alpha;
 
     for candidate_move in moves {
         if let Some(next_board) = board.make(candidate_move) {
@@ -129,13 +131,21 @@ fn negamax(board: &Board, mut context: SearchContext, env: &mut SearchEnv) -> i6
         }
     }
 
+    let node_type = if max_score > context.beta {
+        NodeType::LowerBound
+    } else if max_score > old_alpha {
+        NodeType:: Exact
+    } else {
+        NodeType::UpperBound
+    };
+
     if !env.stopped {
         env.tt.store(TTEntry {
             zobrist_key: board.game_state.curr_zobrist_key,
             best_move,
             score: max_score,
             depth: context.depth,
-            node_type: NodeType::Exact,
+            node_type,
         });
     }
 
