@@ -96,8 +96,8 @@ fn negamax(board: &Board, mut context: SearchContext, env: &mut SearchEnv) -> i6
 
     let mut moves = board.generate_pseudolegal_moves();
     moves.sort_by(|a, b| {
-        let score_a = if Some(*a) == tt_move { i32::MAX } else { a.score() };
-        let score_b = if Some(*b) == tt_move { i32::MAX } else { b.score() };
+        let score_a = if Some(*a) == tt_move { i16::MAX } else { a.score() };
+        let score_b = if Some(*b) == tt_move { i16::MAX } else { b.score() };
         score_b.cmp(&score_a)
     });
 
@@ -230,8 +230,8 @@ fn search_fixed_depth(board: &Board, depth: i64, env: &mut SearchEnv) -> (i64, O
     let tt_move = env.tt.get(board.game_state.curr_zobrist_key).and_then(|e| e.best_move());
     let mut moves = board.generate_pseudolegal_moves();
     moves.sort_by(|a, b| {
-        let score_a = if Some(*a) == tt_move { i32::MAX } else { a.score() };
-        let score_b = if Some(*b) == tt_move { i32::MAX } else { b.score() };
+        let score_a = if Some(*a) == tt_move { i16::MAX } else { a.score() };
+        let score_b = if Some(*b) == tt_move { i16::MAX } else { b.score() };
         score_b.cmp(&score_a)
     });
 

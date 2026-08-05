@@ -8,7 +8,7 @@ use crate::{bitboard::Bitboard, board::*, heuristics::*, piece::Piece};
 // Heuristics are calculated at movegen, which I might change.
 
 #[derive(Clone, Copy)]
-pub struct Move {data: u16, ordering_score: i32}
+pub struct Move {data: u16, ordering_score: i16}
 
 impl PartialEq for Move {
     fn eq(&self, other: &Self) -> bool {
@@ -72,7 +72,7 @@ impl Move {
         self.flags() & 0b1000 != 0
     }
 
-    pub fn score(self) -> i32 {
+    pub fn score(self) -> i16 {
         self.ordering_score
     }
 
