@@ -64,6 +64,84 @@ pub fn stop_search(search_thread: &mut Option<thread::JoinHandle<()>>, search_co
     }
 }
 
+#[derive(Default)]
+struct GoParameters {
+    depth: Option<i64>,
+    movetime: Option<u64>,
+    nodes: Option<u64>,
+    wtime: Option<u64>,
+    btime: Option<u64>,
+    winc: Option<u64>,
+    binc: Option<u64>,
+    infinite: bool
+}
+
+// Handles all possible go parameters
+fn parse_go(line: &str) -> GoParameters {
+    let mut parts = line.split_whitespace();
+    
+    let mut params = GoParameters::default();
+
+    while let Some(part) = parts.next() {
+        match part {
+            "depth" => {
+                if let Some(val) = parts.next() {
+                    if let Ok(parsed) = val.parse::<i64>() {
+                        params.depth = Some(parsed);
+                    }
+                }
+            }
+            "movetime" => {
+                if let Some(val) = parts.next() {
+                    if let Ok(parsed) = val.parse::<u64>() {
+                        params.movetime = Some(parsed);
+                    }
+                }
+            }
+            "nodes" => {
+                if let Some(val) = parts.next() {
+                    if let Ok(parsed) = val.parse::<u64>() {
+                        params.nodes = Some(parsed);
+                    }
+                }
+            }
+            "wtime" => {
+                if let Some(val) = parts.next() {
+                    if let Ok(parsed) = val.parse::<u64>() {
+                        params.wtime = Some(parsed);
+                    }
+                }
+            }
+            "btime" => {
+                if let Some(val) = parts.next() {
+                    if let Ok(parsed) = val.parse::<u64>() {
+                        params.btime = Some(parsed);
+                    }
+                }
+            }
+            "winc" => {
+                if let Some(val) = parts.next() {
+                    if let Ok(parsed) = val.parse::<u64>() {
+                        params.winc = Some(parsed);
+                    }
+                }
+            }
+            "binc" => {
+                if let Some(val) = parts.next() {
+                    if let Ok(parsed) = val.parse::<u64>() {
+                        params.binc = Some(parsed);
+                    }
+                }
+            }
+            "infinite" => params.infinite = true,
+            _ => {}
+            
+        }
+    }
+
+    params
+}
+
 fn parse_uci_position(curr_board: Board, line: &str) -> (Board, Vec<u64>) {
     let mut parts = line.split_whitespace();
     let mut board = curr_board;
