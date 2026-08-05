@@ -63,11 +63,15 @@ pub fn engine() {
                 let new_history = hash_history.clone();
                 let new_control = search_control.clone();
 
+                let node_limit = params.nodes.unwrap_or(u64::MAX);
+
                 search_thread = Some(thread::spawn(move || {
                     let mut env = SearchEnv {
                         nodes_visited: 0,
+                        node_limit,
                         hash_history: new_history,
                         search_control: new_control,
+                        stopped: false,
                     };
 
                     let (_score, best_move) = search(&new_board, max_depth, &mut env);
@@ -263,6 +267,4 @@ mod tests {
 
         assert_eq!(board, fen_board)
     }
-
-    
 }

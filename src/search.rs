@@ -7,13 +7,23 @@ const NODE_CHECK_INTERVAL_MASK: u64 = 2047; // Check search control every 2048 n
 // Holds global search variables shared across the recursion
 pub struct SearchEnv {
     pub nodes_visited: u64,
+    pub node_limit: u64,
     pub hash_history: Vec<u64>,
-    pub search_control: SearchControl
+    pub search_control: SearchControl,
+    pub stopped: bool,
 }
 
 impl SearchEnv {
     pub fn is_repetition(&self, key: u64) -> bool {
         self.hash_history.contains(&key)
+    }
+
+    pub fn check_stop(&mut self) -> bool {
+        if self.stopped || self.search_control.is_stopped() {
+            self.stopped = true;
+            return true;
+        }
+        false
     }
 }
 
@@ -47,7 +57,12 @@ impl SearchControl {
 fn negamax(board: &Board, mut context: SearchContext, env: &mut SearchEnv) -> i64 {
     env.nodes_visited += 1;
 
-    if (env.nodes_visited & NODE_CHECK_INTERVAL_MASK == 0) && env.search_control.is_stopped() {
+    if env.stopped || env.nodes_visited >= env.node_limit {
+        env.stopped = true;
+        return 0;
+    }
+
+    if (env.nodes_visited & NODE_CHECK_INTERVAL_MASK == 0) && env.check_stop() {
         return 0;
     }
 
@@ -80,7 +95,7 @@ fn negamax(board: &Board, mut context: SearchContext, env: &mut SearchEnv) -> i6
             let score = -negamax(&next_board, next_context, env);
             env.hash_history.pop();
 
-            if env.search_control.is_stopped() {
+            if env.stopped {
                 return 0;
             }
 
@@ -112,7 +127,12 @@ fn negamax(board: &Board, mut context: SearchContext, env: &mut SearchEnv) -> i6
 fn quiescense(board: &Board, mut context: SearchContext, env: &mut SearchEnv) -> i64 {
     env.nodes_visited += 1;
 
-    if (env.nodes_visited & NODE_CHECK_INTERVAL_MASK == 0) && env.search_control.is_stopped() {
+    if env.stopped || env.nodes_visited >= env.node_limit {
+        env.stopped = true;
+        return 0;
+    }
+
+    if (env.nodes_visited & NODE_CHECK_INTERVAL_MASK == 0) && env.check_stop() {
         return 0;
     }
     
@@ -142,7 +162,7 @@ fn quiescense(board: &Board, mut context: SearchContext, env: &mut SearchEnv) ->
 
             let score = -quiescense(&next_board, next_context, env);
 
-            if env.search_control.is_stopped() {
+            if env.stopped {
                 return 0;
             }
 
@@ -160,7 +180,7 @@ fn quiescense(board: &Board, mut context: SearchContext, env: &mut SearchEnv) ->
     best_value
 }
 
-pub fn search(board: &Board, depth: i64, env: &mut SearchEnv) -> (i64, Option<Move>) {
+fn search_fixed_depth(board: &Board, depth: i64, env: &mut SearchEnv) -> (i64, Option<Move>) {
     let mut moves = board.generate_pseudolegal_moves();
     moves.sort_by(|a, b| b.score().cmp(&a.score()));
 
@@ -170,7 +190,7 @@ pub fn search(board: &Board, depth: i64, env: &mut SearchEnv) -> (i64, Option<Mo
     let beta = 1_000_000;
 
     for candidate_move in moves {
-        if env.search_control.is_stopped() {
+        if env.stopped {
             break;
         }
 
@@ -186,7 +206,7 @@ pub fn search(board: &Board, depth: i64, env: &mut SearchEnv) -> (i64, Option<Mo
             let score = -negamax(&next_board, context, env);
             env.hash_history.pop();
 
-            if env.search_control.is_stopped() {
+            if env.stopped {
                 break;
             }
 
@@ -202,4 +222,33 @@ pub fn search(board: &Board, depth: i64, env: &mut SearchEnv) -> (i64, Option<Mo
     }
 
     (max_score, best_move)
+}
+
+pub fn search(board: &Board, max_depth: i64, env: &mut SearchEnv) -> (i64, Option<Move>) {
+    let mut global_best_move = None;
+    let mut global_best_score = 0;
+
+    for d in 1..=max_depth {
+        let (score, best_move) = search_fixed_depth(board, d, env);
+
+        if env.stopped {
+            if global_best_move.is_none() && best_move.is_some() {
+                global_best_move = best_move;
+                global_best_score = score;
+            }
+            break;
+        }
+
+        if let Some(mv) = best_move {
+            global_best_move = Some(mv);
+            global_best_score = score;
+
+            println!(
+                "info depth {} score cp {} nodes {} pv {}",
+                d, score, env.nodes_visited, mv
+            );
+        }
+    }
+
+    (global_best_score, global_best_move)
 }
