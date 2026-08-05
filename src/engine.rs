@@ -79,15 +79,17 @@ pub fn engine() {
                 let new_control = search_control.clone();
 
                 let node_limit = params.nodes.unwrap_or(u64::MAX);
+                let tt_clone = tt.clone();
 
                 search_thread = Some(thread::spawn(move || {
+                    let mut tt_guard = tt_clone.lock().unwrap();
                     let mut env = SearchEnv {
                         nodes_visited: 0,
                         node_limit,
                         hash_history: new_history,
                         search_control: new_control,
                         stopped: false,
-                        tt: TT::new(16)
+                        tt: &mut *tt_guard,
                     };
 
                     let (_score, best_move) = search(&new_board, max_depth, &mut env);

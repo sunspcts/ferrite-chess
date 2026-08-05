@@ -5,16 +5,16 @@ const MATE_EVAL: i64 = 30000;
 const NODE_CHECK_INTERVAL_MASK: u64 = 2047; // Check search control every 2048 nodes
 
 // Holds global search variables shared across the recursion
-pub struct SearchEnv {
+pub struct SearchEnv<'a> {
     pub nodes_visited: u64,
     pub node_limit: u64,
     pub hash_history: Vec<u64>,
     pub search_control: SearchControl,
     pub stopped: bool,
-    pub tt: TT,
+    pub tt: &'a mut TT,
 }
 
-impl SearchEnv {
+impl<'a> SearchEnv<'a> {
     pub fn is_repetition(&self, key: u64) -> bool {
         self.hash_history.contains(&key)
     }
