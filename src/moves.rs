@@ -138,7 +138,7 @@ pub mod move_flags {
 #[derive(Clone, Copy)]
 pub struct MoveList {
     moves: [Move; 256],
-    len: usize,
+    len: u8,
 }
 
 impl MoveList {
@@ -150,8 +150,40 @@ impl MoveList {
     }
 
     pub fn push(&mut self, mv: Move) {
-        self.moves[self.len] = mv;
-        self.len += 1
+        self.moves[self.len as usize] = mv;
+        self.len += 1;
+    }
+
+    pub fn len(&self) -> usize {
+        self.len as usize
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len == 0
+    }
+
+    pub fn clear(&mut self) {
+        self.len = 0;
+    }
+}
+
+impl Default for MoveList {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl std::ops::Deref for MoveList {
+    type Target = [Move];
+
+    fn deref(&self) -> &Self::Target {
+        &self.moves[..self.len as usize]
+    }
+}
+
+impl std::ops::DerefMut for MoveList {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.moves[..self.len as usize]
     }
 }
 impl Board {
