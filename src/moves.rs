@@ -39,6 +39,17 @@ impl Move {
             ordering_score: score
         }
     }
+
+    pub fn data(&self) -> u16 {
+        self.data
+    }
+
+    pub fn new_without_score(data: u16) -> Self {
+        Move {
+            data,
+            ordering_score: 0,
+        }
+    }
     
     // Helpers for unpacking data field
     pub fn from_sq(self) -> u16 {

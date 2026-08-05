@@ -77,15 +77,16 @@ fn negamax(board: &Board, mut context: SearchContext, env: &mut SearchEnv) -> i6
 
 
     let tt_entry = env.tt.get(board.game_state.curr_zobrist_key);
-    let tt_move = tt_entry.and_then(|e| e.best_move);
+    let tt_move = tt_entry.and_then(|e| e.best_move());
 
     if context.ply > 0 {
         if let Some(entry) = tt_entry {
-            if entry.depth >= context.depth {
+            if (entry.depth as i64) >= context.depth {
+                let tt_score = entry.score as i64;
                 match entry.node_type {
-                    NodeType::Exact => return entry.score,
-                    NodeType::LowerBound if entry.score >= context.beta => return entry.score,
-                    NodeType::UpperBound if entry.score <= context.alpha => return entry.score,
+                    NodeType::Exact => return tt_score,
+                    NodeType::LowerBound if tt_score >= context.beta => return tt_score,
+                    NodeType::UpperBound if tt_score <= context.alpha => return tt_score,
                     _ => {}
                 }
             }
@@ -157,10 +158,11 @@ fn negamax(board: &Board, mut context: SearchContext, env: &mut SearchEnv) -> i6
     if !env.stopped {
         env.tt.store(TTEntry {
             zobrist_key: board.game_state.curr_zobrist_key,
-            best_move,
-            score: max_score,
-            depth: context.depth,
+            score: max_score as i16,
+            move_data: best_move.map(|m| m.data()).unwrap_or(0),
+            depth: context.depth as i8,
             node_type,
+            age: 0,
         });
     }
 
@@ -224,7 +226,7 @@ fn quiescense(board: &Board, mut context: SearchContext, env: &mut SearchEnv) ->
 }
 
 fn search_fixed_depth(board: &Board, depth: i64, env: &mut SearchEnv) -> (i64, Option<Move>) {
-    let tt_move = env.tt.get(board.game_state.curr_zobrist_key).and_then(|e| e.best_move);
+    let tt_move = env.tt.get(board.game_state.curr_zobrist_key).and_then(|e| e.best_move());
     let mut moves = board.generate_pseudolegal_moves();
     moves.sort_by(|a, b| {
         let score_a = if Some(*a) == tt_move { i32::MAX } else { a.score() };
@@ -272,10 +274,11 @@ fn search_fixed_depth(board: &Board, depth: i64, env: &mut SearchEnv) -> (i64, O
     if !env.stopped && best_move.is_some() {
         env.tt.store(TTEntry {
             zobrist_key: board.game_state.curr_zobrist_key,
-            best_move,
-            score: max_score,
-            depth,
+            score: max_score as i16,
+            move_data: best_move.map(|m| m.data()).unwrap_or(0),
+            depth: depth as i8,
             node_type: NodeType::Exact,
+            age: 0,
         });
     }
 
@@ -311,55 +314,70 @@ pub fn search(board: &Board, max_depth: i64, env: &mut SearchEnv) -> (i64, Optio
     (global_best_score, global_best_move)
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq, Default)]
+#[repr(u8)]
+pub enum NodeType {
+    #[default]
+    None = 0,
+    Exact = 1,
+    LowerBound = 2,
+    UpperBound = 3,
+}
+
+#[derive(Clone, Copy, Default)]
 pub struct TTEntry {
     pub zobrist_key: u64,
-    pub best_move: Option<Move>,
-    pub score: i64,
-    pub depth: i64,
+    pub score: i16,
+    pub move_data: u16,
+    pub depth: i8,
     pub node_type: NodeType,
+    pub age: u8,
+}
+
+impl TTEntry {
+    pub fn best_move(&self) -> Option<Move> {
+        if self.move_data == 0 {
+            None
+        } else {
+            Some(Move::new_without_score(self.move_data))
+        }
+    }
 }
 
 pub struct TT {
-    entries: Vec<Option<TTEntry>>,
+    entries: Vec<TTEntry>,
 }
 
 impl TT {                                                                                                                                                                                                           
     pub fn new(size_mb: usize) -> Self {                                                                                                                                                                        
-        let num_entries = (size_mb * 2_usize.pow(20)) / std::mem::size_of::<Option<TTEntry>>();
+        let num_entries = (size_mb * 2_usize.pow(20)) / std::mem::size_of::<TTEntry>();
         TT {                                                                                                                                                                                                        
-            entries: vec![None; num_entries],                                                                                                                                                                       
+            entries: vec![TTEntry::default(); num_entries],                                                                                                                                                                       
         }                                                                                                                                                                                                           
     }
 
     pub fn clear(&mut self) {
-        self.entries.fill(None);
+        self.entries.fill(TTEntry::default());
     }
 
     pub fn get(&self, zobrist_key: u64) -> Option<TTEntry> {
         let index = (zobrist_key as usize) % self.entries.len();
-        if let Some(entry) = self.entries[index] {
-            if entry.zobrist_key == zobrist_key {
-                return Some(entry);
-            }
+        let entry = self.entries[index];
+        if entry.node_type != NodeType::None && entry.zobrist_key == zobrist_key {
+            Some(entry)
+        } else {
+            None
         }
-        None
     }
 
     pub fn store(&mut self, entry: TTEntry) {
         let index = (entry.zobrist_key as usize) % self.entries.len();
-        if let Some(existing) = self.entries[index] {
+        let existing = self.entries[index];
+        if existing.node_type != NodeType::None {
             if existing.zobrist_key == entry.zobrist_key && existing.depth > entry.depth {
                 return;
             }
         }
-        self.entries[index] = Some(entry);
+        self.entries[index] = entry;
     }
-}
-
-#[derive(Clone, Copy)]
-pub enum NodeType {
-    Exact,
-    LowerBound,
-    UpperBound,
 }
