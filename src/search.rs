@@ -11,6 +11,7 @@ pub struct SearchEnv {
     pub hash_history: Vec<u64>,
     pub search_control: SearchControl,
     pub stopped: bool,
+    pub tt: TT,
 }
 
 impl SearchEnv {
@@ -74,11 +75,17 @@ fn negamax(board: &Board, mut context: SearchContext, env: &mut SearchEnv) -> i6
         return quiescense(board, context, env);
     }
 
+    let tt_move = env.tt.get(board.game_state.curr_zobrist_key).and_then(|e| e.best_move);
     let mut moves = board.generate_pseudolegal_moves();
-    moves.sort_by(|a, b| b.score().cmp(&a.score()));
+    moves.sort_by(|a, b| {
+        let score_a = if Some(*a) == tt_move { i32::MAX } else { a.score() };
+        let score_b = if Some(*b) == tt_move { i32::MAX } else { b.score() };
+        score_b.cmp(&score_a)
+    });
 
     let mut legal_moves_count = 0;
     let mut max_score = i64::MIN;
+    let mut best_move = None;
 
     for candidate_move in moves {
         if let Some(next_board) = board.make(candidate_move) {
@@ -101,6 +108,7 @@ fn negamax(board: &Board, mut context: SearchContext, env: &mut SearchEnv) -> i6
 
             if score > max_score {
                 max_score = score;
+                best_move = Some(candidate_move);
             }
 
             if score > context.alpha {
@@ -119,6 +127,16 @@ fn negamax(board: &Board, mut context: SearchContext, env: &mut SearchEnv) -> i6
         } else {
             return 0; // Stalemate
         }
+    }
+
+    if !env.stopped {
+        env.tt.store(TTEntry {
+            zobrist_key: board.game_state.curr_zobrist_key,
+            best_move,
+            score: max_score,
+            depth: context.depth,
+            node_type: NodeType::Exact,
+        });
     }
 
     max_score
@@ -181,8 +199,13 @@ fn quiescense(board: &Board, mut context: SearchContext, env: &mut SearchEnv) ->
 }
 
 fn search_fixed_depth(board: &Board, depth: i64, env: &mut SearchEnv) -> (i64, Option<Move>) {
+    let tt_move = env.tt.get(board.game_state.curr_zobrist_key).and_then(|e| e.best_move);
     let mut moves = board.generate_pseudolegal_moves();
-    moves.sort_by(|a, b| b.score().cmp(&a.score()));
+    moves.sort_by(|a, b| {
+        let score_a = if Some(*a) == tt_move { i32::MAX } else { a.score() };
+        let score_b = if Some(*b) == tt_move { i32::MAX } else { b.score() };
+        score_b.cmp(&score_a)
+    });
 
     let mut best_move = None;
     let mut max_score = i64::MIN;
@@ -221,6 +244,16 @@ fn search_fixed_depth(board: &Board, depth: i64, env: &mut SearchEnv) -> (i64, O
         }
     }
 
+    if !env.stopped && best_move.is_some() {
+        env.tt.store(TTEntry {
+            zobrist_key: board.game_state.curr_zobrist_key,
+            best_move,
+            score: max_score,
+            depth,
+            node_type: NodeType::Exact,
+        });
+    }
+
     (max_score, best_move)
 }
 
@@ -254,20 +287,21 @@ pub fn search(board: &Board, max_depth: i64, env: &mut SearchEnv) -> (i64, Optio
 }
 
 #[derive(Clone, Copy)]
-struct TTEntry {
-    zobrist_key: u64,
-    best_move: Option<Move>,
-    score: i64,
-    depth: i64,
-    node_type: NodeType
+pub struct TTEntry {
+    pub zobrist_key: u64,
+    pub best_move: Option<Move>,
+    pub score: i64,
+    pub depth: i64,
+    pub node_type: NodeType,
 }
 
-struct TT {
-    entries: Vec<Option<TTEntry>>
+pub struct TT {
+    entries: Vec<Option<TTEntry>>,
 }
 
 impl TT {                                                                                                                                                                                                           
-    pub fn new(num_entries: usize) -> Self {                                                                                                                                                                        
+    pub fn new(size_mb: usize) -> Self {                                                                                                                                                                        
+        let num_entries = (size_mb * 2_usize.pow(20)) / std::mem::size_of::<Option<TTEntry>>();
         TT {                                                                                                                                                                                                        
             entries: vec![None; num_entries],                                                                                                                                                                       
         }                                                                                                                                                                                                           
@@ -277,7 +311,7 @@ impl TT {
         let index = (zobrist_key as usize) % self.entries.len();
         if let Some(entry) = self.entries[index] {
             if entry.zobrist_key == zobrist_key {
-                return Some(entry)
+                return Some(entry);
             }
         }
         None
@@ -285,13 +319,13 @@ impl TT {
 
     pub fn store(&mut self, entry: TTEntry) {
         let index = (entry.zobrist_key as usize) % self.entries.len();
-        self.entries[index] = Some(entry)
+        self.entries[index] = Some(entry);
     }
 }
 
 #[derive(Clone, Copy)]
-enum NodeType {
+pub enum NodeType {
     Exact,
     LowerBound,
-    UpperBound
+    UpperBound,
 }

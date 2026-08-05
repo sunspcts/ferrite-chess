@@ -10,6 +10,13 @@ use crate::{bitboard::Bitboard, board::*, heuristics::*, piece::Piece};
 #[derive(Clone, Copy)]
 pub struct Move {data: u16, ordering_score: i32}
 
+impl PartialEq for Move {
+    fn eq(&self, other: &Self) -> bool {
+        self.data == other.data
+    }
+}
+impl Eq for Move {}
+
 impl Move {
     pub fn new(board: &Board, from: u16, to: u16, flags: u16, piece: Piece) -> Self {
         let mut score = 0;

@@ -1,6 +1,6 @@
 use std::{io::{self, BufRead}, sync::atomic::Ordering, thread, time::Duration};
 
-use crate::{board::{Board, Side}, moves::Move, search::{search, SearchControl, SearchEnv}};
+use crate::{board::{Board, Side}, moves::Move, search::{SearchControl, SearchEnv, TT, search}};
 
 const ENGINE_NAME: &str = "Ferrite";
 const ENGINE_AUTHOR: &str = "sunspcts";
@@ -72,6 +72,7 @@ pub fn engine() {
                         hash_history: new_history,
                         search_control: new_control,
                         stopped: false,
+                        tt: TT::new(16)
                     };
 
                     let (_score, best_move) = search(&new_board, max_depth, &mut env);
@@ -217,7 +218,10 @@ fn calculate_search_time(board: &Board, params: &GoParameters) -> Option<u64> {
     }.unwrap_or(0);
 
     if let Some(t) = time_remaining{
-        return Some(t / 20 + inc / 2)
+        match t > 200000 {
+            true => return Some(10000),
+            false => return Some(t / 20 + inc / 2)
+        }
     }
 
     None
