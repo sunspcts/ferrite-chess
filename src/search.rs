@@ -252,3 +252,21 @@ pub fn search(board: &Board, max_depth: i64, env: &mut SearchEnv) -> (i64, Optio
 
     (global_best_score, global_best_move)
 }
+
+struct TTEntry {
+    zobrist_key: u64,
+    best_move: Option<Move>,
+    score: i64,
+    depth: i64,
+    node_type: NodeType
+}
+
+struct TT {
+    entries: Vec<Option<TTEntry>>
+}
+
+enum NodeType {
+    Exact,
+    LowerBound,
+    UpperBound
+}

@@ -2,7 +2,7 @@ use std::{io::{self, BufRead}, sync::atomic::Ordering, thread, time::Duration};
 
 use crate::{board::{Board, Side}, moves::Move, search::{search, SearchControl, SearchEnv}};
 
-const ENGINE_NAME: &str = "Ferrite PeSTO";
+const ENGINE_NAME: &str = "Ferrite";
 const ENGINE_AUTHOR: &str = "sunspcts";
 const DEFAULT_DEPTH: i64 = 8;
 const STARTPOS_FEN: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
