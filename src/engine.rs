@@ -1,6 +1,6 @@
 use std::{io::{self, BufRead}, thread};
 
-use crate::{board::Board, search::SearchControl};
+use crate::{board::Board, moves::Move, search::SearchControl};
 
 const ENGINE_NAME: &str = "Ferrite";
 const ENGINE_AUTHOR: &str = "sunspcts";
@@ -38,4 +38,36 @@ pub fn engine() {
     }
 
     let _ = (board, hash_history);
+}
+
+fn parse_uci_position(curr_board: Board, line: &str) -> (Board, Vec<u64>) {
+    let mut parts = line.split_whitespace();
+    let mut board = curr_board;
+
+    let _ = parts.next();
+    let mode = parts.next();
+
+    if mode == Some("fen") {
+        let fen_parts: Vec<&str> = parts.by_ref().take_while(|part| *part != "moves").collect();
+        let fen = fen_parts.join(" ");
+        board = Board::new_from_fen(&fen);
+    } else if mode == Some("startpos") {
+        Board::new_from_fen(STARTPOS_FEN);
+    }
+
+    let mut hash_history = vec![board.game_state.curr_zobrist_key];
+
+    for m in parts {
+        if m == "moves" {
+            continue
+        } 
+
+        if let Some(mv) = Move::from_uci(&board, m) {
+            if let Some(next_board) = board.make(mv) {
+                board = next_board;
+                hash_history.push(board.game_state.curr_zobrist_key);
+            }
+        }
+    }
+    (board, hash_history)
 }
