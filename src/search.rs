@@ -106,7 +106,7 @@ fn negamax(board: &Board, mut context: SearchContext, env: &mut SearchEnv) -> i6
     let mut best_move = None;
     let old_alpha = context.alpha;
 
-    for candidate_move in moves {
+    for &candidate_move in &moves {
         if let Some(next_board) = board.make(candidate_move) {
             legal_moves_count += 1;
 
@@ -197,7 +197,7 @@ fn quiescense(board: &Board, mut context: SearchContext, env: &mut SearchEnv) ->
     moves.retain(|mv| mv.is_capture() || mv.is_promo());
     moves.sort_by(|a, b| b.score().cmp(&a.score()));
 
-    for candidate_move in moves {
+    for &candidate_move in &moves {
         if let Some(next_board) = board.make(candidate_move) {
             let next_context = SearchContext {
                 alpha: -context.beta,
@@ -240,7 +240,7 @@ fn search_fixed_depth(board: &Board, depth: i64, env: &mut SearchEnv) -> (i64, O
     let mut alpha = -1_000_000;
     let beta = 1_000_000;
 
-    for candidate_move in moves {
+    for &candidate_move in &moves {
         if env.stopped {
             break;
         }

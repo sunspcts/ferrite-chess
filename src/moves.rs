@@ -86,7 +86,7 @@ impl Move {
     // Generates all possible moves, checks if the uci_string passed matches any of them. Returns None as a fallback.
     pub fn from_uci(board: &Board, uci_str: &str) -> Option<Move> {
         let moves = board.generate_pseudolegal_moves();
-        for mv in moves {
+        for &mv in &moves {
             if mv.to_string() == uci_str {
                 if board.make(mv).is_some() {
                     return Some(mv);
@@ -147,7 +147,7 @@ pub mod move_flags {
 // Implementing this as an array so it'll be stack allocated. Profiling showed a LOT of malloc calls in the movegen phase.
 #[derive(Clone, Copy)]
 pub struct MoveList {
-    moves: [Move; 255],
+    moves: [Move; 256],
     len: u8, // pointer essentially
 }
 
@@ -196,7 +196,7 @@ impl MoveList {
 impl Default for MoveList {
     fn default() -> Self {
         MoveList {
-            moves: [Move::new_without_score(0); 255], 
+            moves: [Move::new_without_score(0); 256], 
             len: 0,
         }
     }
@@ -218,10 +218,28 @@ impl std::ops::DerefMut for MoveList {
 
 impl IntoIterator for MoveList {
     type Item = Move;
-    type IntoIter = std::iter::Take<std::array::IntoIter<Move, 255>>;
+    type IntoIter = std::iter::Take<std::array::IntoIter<Move, 256>>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.moves.into_iter().take(self.len as usize)
+    }
+}
+
+impl<'a> IntoIterator for &'a MoveList {
+    type Item = &'a Move;
+    type IntoIter = std::slice::Iter<'a, Move>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
+}
+
+impl<'a> IntoIterator for &'a mut MoveList {
+    type Item = &'a mut Move;
+    type IntoIter = std::slice::IterMut<'a, Move>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter_mut()
     }
 }
 
@@ -383,7 +401,7 @@ impl Board {
         let mut nodes = 0;
         let moves = self.generate_pseudolegal_moves();
 
-        for m in moves {
+        for &m in &moves {
             if let Some(next_board) = self.make(m) {
                 nodes += next_board.perft(depth - 1);
             }
