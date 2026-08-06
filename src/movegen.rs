@@ -11,33 +11,37 @@ const PROMOTION_RANKS_BB: Bitboard = Bitboard::new(0xFF000000000000FF);
 //Pseudolegal move generation. Legality checking is done at the make_move() stage.
 
 impl Board {
-    pub fn generate_pseudolegal_moves(&self) -> MoveList {
-        let mut moves = MoveList::default();
+    pub fn generate_pseudolegal_moves(&self, moves: &mut MoveList) {
+        moves.clear();
         let side = self.game_state.active_side;
-        self.generate_pawn_moves(&mut moves);
-        self.generate_castling_moves(&mut moves);
+        self.generate_pawn_moves(moves);
+        self.generate_castling_moves(moves);
 
         // Might eventually move these loops into the methods.
         for king in self.piece_bb[side as usize][Piece::King as usize] {
-            self.generate_leaper_moves(king, &mut moves, Piece::King);
+            self.generate_leaper_moves(king, moves, Piece::King);
         }
 
         for knight in self.piece_bb[side as usize][Piece::Knight as usize] {
-            self.generate_leaper_moves(knight, &mut moves, Piece::Knight);
+            self.generate_leaper_moves(knight, moves, Piece::Knight);
         }
 
         for bishop in self.piece_bb[side as usize][Piece::Bishop as usize] {
-            self.generate_slider_moves(bishop, &mut moves, Piece::Bishop);
+            self.generate_slider_moves(bishop, moves, Piece::Bishop);
         }
 
         for rook in self.piece_bb[side as usize][Piece::Rook as usize] {
-            self.generate_slider_moves(rook, &mut moves, Piece::Rook);
+            self.generate_slider_moves(rook, moves, Piece::Rook);
         }
 
         for queen in self.piece_bb[side as usize][Piece::Queen as usize] {
-            self.generate_slider_moves(queen, &mut moves, Piece::Queen);
+            self.generate_slider_moves(queen, moves, Piece::Queen);
         }
+    }
 
+    pub fn generate_pseudolegal_moves_list(&self) -> MoveList {
+        let mut moves = MoveList::default();
+        self.generate_pseudolegal_moves(&mut moves);
         moves
     }
 

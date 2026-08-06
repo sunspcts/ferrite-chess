@@ -85,7 +85,7 @@ impl Move {
 
     // Generates all possible moves, checks if the uci_string passed matches any of them. Returns None as a fallback.
     pub fn from_uci(board: &Board, uci_str: &str) -> Option<Move> {
-        let moves = board.generate_pseudolegal_moves();
+        let moves = board.generate_pseudolegal_moves_list();
         for &mv in &moves {
             if mv.to_string() == uci_str {
                 if board.make(mv).is_some() {
@@ -394,16 +394,34 @@ impl Board {
 
     #[cfg(test)]
     pub fn perft(&self, depth: u8) -> u64 {
+        let mut move_lists = [MoveList::default(); 256];
+        self.perft_helper(depth, 0, &mut move_lists)
+    }
+
+    #[cfg(test)]
+    fn perft_helper(&self, depth: u8, ply: usize, move_lists: &mut [MoveList; 256]) -> u64 {
         if depth == 0 {
             return 1;
         }
 
-        let mut nodes = 0;
-        let moves = self.generate_pseudolegal_moves();
+        let ply_idx = ply.min(255);
+        self.generate_pseudolegal_moves(&mut move_lists[ply_idx]);
+        let moves = move_lists[ply_idx];
 
+        if depth == 1 {
+            let mut count = 0;
+            for &m in &moves {
+                if self.make(m).is_some() {
+                    count += 1;
+                }
+            }
+            return count;
+        }
+
+        let mut nodes = 0;
         for &m in &moves {
             if let Some(next_board) = self.make(m) {
-                nodes += next_board.perft(depth - 1);
+                nodes += next_board.perft_helper(depth - 1, ply + 1, move_lists);
             }
         }
 

@@ -1,8 +1,9 @@
 use std::sync::{Arc, atomic::{AtomicBool, Ordering}};
 
-use crate::{board::Board, eval::eval, moves::Move};
+use crate::{board::Board, eval::eval, moves::{Move, MoveList}};
 const MATE_EVAL: i64 = 30000;
 const NODE_CHECK_INTERVAL_MASK: u64 = 2047; // Check search control every 2048 nodes
+pub const MAX_PLY: usize = 256;
 
 // Holds global search variables shared across the recursion
 pub struct SearchEnv<'a> {
@@ -13,6 +14,7 @@ pub struct SearchEnv<'a> {
     pub stopped: bool,
     pub age: u8,
     pub tt: &'a mut TT,
+    pub move_lists: [MoveList; MAX_PLY],
 }
 
 impl<'a> SearchEnv<'a> {
@@ -94,7 +96,9 @@ fn negamax(board: &Board, mut context: SearchContext, env: &mut SearchEnv) -> i6
         }
     }
 
-    let mut moves = board.generate_pseudolegal_moves();
+    let ply = (context.ply as usize).min(MAX_PLY - 1);
+    board.generate_pseudolegal_moves(&mut env.move_lists[ply]);
+    let mut moves = env.move_lists[ply];
     moves.sort_by(|a, b| {
         let score_a = if Some(*a) == tt_move { i16::MAX } else { a.score() };
         let score_b = if Some(*b) == tt_move { i16::MAX } else { b.score() };
@@ -193,7 +197,9 @@ fn quiescense(board: &Board, mut context: SearchContext, env: &mut SearchEnv) ->
         context.alpha = best_value;
     }
 
-    let mut moves = board.generate_pseudolegal_moves();
+    let ply = (context.ply as usize).min(MAX_PLY - 1);
+    board.generate_pseudolegal_moves(&mut env.move_lists[ply]);
+    let mut moves = env.move_lists[ply];
     moves.retain(|mv| mv.is_capture() || mv.is_promo());
     moves.sort_by(|a, b| b.score().cmp(&a.score()));
 
@@ -228,7 +234,9 @@ fn quiescense(board: &Board, mut context: SearchContext, env: &mut SearchEnv) ->
 
 fn search_fixed_depth(board: &Board, depth: i64, env: &mut SearchEnv) -> (i64, Option<Move>) {
     let tt_move = env.tt.get(board.game_state.curr_zobrist_key).and_then(|e| e.best_move());
-    let mut moves = board.generate_pseudolegal_moves();
+    let ply = 0;
+    board.generate_pseudolegal_moves(&mut env.move_lists[ply]);
+    let mut moves = env.move_lists[ply];
     moves.sort_by(|a, b| {
         let score_a = if Some(*a) == tt_move { i16::MAX } else { a.score() };
         let score_b = if Some(*b) == tt_move { i16::MAX } else { b.score() };

@@ -1,6 +1,6 @@
 use std::{io::{self, BufRead}, sync::{Arc, Mutex, atomic::Ordering}, thread, time::Duration};
 
-use crate::{board::{Board, Side}, moves::Move, search::{SearchControl, SearchEnv, TT, search}};
+use crate::{board::{Board, Side}, moves::{Move, MoveList}, search::{SearchControl, SearchEnv, TT, search}};
 
 const ENGINE_NAME: &str = "Ferrite";
 const ENGINE_AUTHOR: &str = "sunspcts";
@@ -94,6 +94,7 @@ pub fn engine() {
                         search_control: new_control,
                         stopped: false,
                         age: search_age,
+                        move_lists: [MoveList::default(); crate::search::MAX_PLY],
                         tt: &mut *tt_guard,
                     };
 
@@ -103,7 +104,7 @@ pub fn engine() {
                         println!("bestmove {}", mv);
                     } else {
                         let fallback = new_board
-                            .generate_pseudolegal_moves()
+                            .generate_pseudolegal_moves_list()
                             .into_iter()
                             .find(|m| new_board.make(*m).is_some());
 
