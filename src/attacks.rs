@@ -1,30 +1,32 @@
 use crate::{bitboard::Bitboard, board::Board};
 
+//Mostly static lookup table initializations.
+
 pub const KING_ATTACKS: [Bitboard; 64] = init_leaper_attacks(&DIR_OFFSETS);
 pub const KNIGHT_ATTACKS: [Bitboard; 64] = init_leaper_attacks(&KNIGHT_OFFSETS);
 pub const PAWN_ATTACKS: [[Bitboard; 64]; 2] = init_pawn_attacks();
 pub const RAYS: [[Bitboard; 64]; 8] = init_ray_lookup();
 
 const DIR_OFFSETS: [(i8, i8); 8] = [
-    (1, 0),
-    (-1, 0),
-    (0, 1),
-    (0, -1),
-    (1, 1),
-    (1, -1),
-    (-1, 1),
-    (-1, -1),
+    (1, 0), // N
+    (-1, 0), // S
+    (0, 1), // E
+    (0, -1), // W
+    (1, 1), // NE
+    (1, -1), // NW
+    (-1, 1), // SE
+    (-1, -1), // SW
 ];
 
 const KNIGHT_OFFSETS: [(i8, i8); 8] = [
-    (2, 1),
-    (1, 2),
-    (-1, 2),
-    (-2, 1),
-    (-2, -1),
-    (-1, -2),
-    (1, -2),
-    (2, -1),
+    (2, 1), // N + NE
+    (1, 2), // E + NE
+    (-1, 2), // E + SE
+    (-2, 1), // S + SE
+    (-2, -1), // S + SW
+    (-1, -2), // W + SW
+    (1, -2), // W + NW
+    (2, -1), // N + NW
 ];
 
 const A_FILE: u64 = 0x0101010101010101;

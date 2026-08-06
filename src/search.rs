@@ -43,7 +43,6 @@ struct SearchContext {
     pub beta: i64,
     pub ply: i64,
     pub depth: i64,
-    pub allow_nmp: bool,
 }
 
 impl SearchContext {
@@ -53,7 +52,6 @@ impl SearchContext {
             beta: -self.alpha,
             ply: self.ply + 1,
             depth,
-            allow_nmp: true,
         }
     }
 
@@ -209,41 +207,6 @@ impl TT {
     }
 }
 
-fn nmp(board: &Board, context: &SearchContext, env: &mut SearchEnv) -> Option<i64> {
-    let reduction = 2 + context.depth / 6;
-
-    if context.allow_nmp
-        && context.depth >= 3
-        && context.ply > 0
-        && context.beta < MATE_EVAL - 100
-        && !board.king_pawn_only()
-        && !board.is_in_check()
-        && eval(board) >= context.beta
-    {
-        let null_board = board.make_null_move();
-        let null_context = SearchContext {
-            alpha: -context.beta,
-            beta: -context.beta + 1,
-            depth: context.depth - 1 - reduction,
-            ply: context.ply + 1,
-            allow_nmp: false,
-        };
-
-        env.hash_history.push(board.game_state.curr_zobrist_key);
-        let null_score = -negamax(&null_board, null_context, env);
-        env.hash_history.pop();
-
-        if env.stopped {
-            return Some(0);
-        }
-
-        if null_score >= context.beta {
-            return Some(context.beta);
-        }
-    }
-    None
-}
-
 fn negamax(board: &Board, mut context: SearchContext, env: &mut SearchEnv) -> i64 {
     if env.step_node_and_check() { return 0; }
 
@@ -265,21 +228,6 @@ fn negamax(board: &Board, mut context: SearchContext, env: &mut SearchEnv) -> i6
         if let Some(score) = tt_entry.and_then(|e| e.cutoff(context.alpha, context.beta, depth, context.ply)) {
             return score;
         }
-    }
-
-    if let Some(nmp_score) = nmp(board, &context, env) {
-        if env.stopped {
-            return 0;
-        }
-        env.tt.store(TTEntry {
-            zobrist_key: board.game_state.curr_zobrist_key,
-            score: score_to_tt(nmp_score, context.ply),
-            move_data: 0,
-            depth: depth as i8,
-            node_type: NodeType::LowerBound,
-            age: env.age,
-        });
-        return nmp_score;
     }
 
     let ply = (context.ply as usize).min(MAX_PLY - 1);
@@ -408,7 +356,6 @@ fn search_fixed_depth(board: &Board, depth: i64, env: &mut SearchEnv) -> (i64, O
                 beta: -alpha,
                 depth: depth - 1,
                 ply: 1,
-                allow_nmp: true,
             };
 
             env.hash_history.push(board.game_state.curr_zobrist_key);

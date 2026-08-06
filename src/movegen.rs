@@ -207,6 +207,7 @@ impl Board {
     }
 }
 
+#[inline]
 fn pawn_move_helper(board: &Board, dest_bb: Bitboard, offset: i16, flag: u16, is_promotion: bool, moves: &mut MoveList) {
     if is_promotion {
         for to_sq in dest_bb {

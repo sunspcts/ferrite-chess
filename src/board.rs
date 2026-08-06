@@ -197,6 +197,7 @@ impl Board {
     }
 
 
+    // I'm going to replace this with a lookup table soon.
     pub fn update_castling_rights(&mut self, from_sq: u16, to_sq: u16) {
         let old_castling = self.game_state.castling;
         match from_sq {
@@ -234,26 +235,6 @@ impl Board {
             Side::White => 1,
             Side::Black => -1
         }
-    }
-
-    pub fn make_null_move(&self) -> Board {
-        let mut board = *self;
-        board.game_state.active_side = self.game_state.active_side.flip();
-        board.game_state.curr_zobrist_key ^= ZOBRIST_RANDOMS[768 + 16 + 8];
-
-        if let Some(sq) = self.game_state.en_passant_square {
-            let file = sq % 8;
-            board.game_state.curr_zobrist_key ^= ZOBRIST_RANDOMS[768 + 16 + file as usize];
-            board.game_state.en_passant_square = None;
-        }
-
-        board.game_state.inc_halfmoves();
-        board
-    }
-
-    pub fn king_pawn_only(&self) -> bool {
-        let side = self.game_state.active_side as usize;
-        (self.piece_bb[side][1] | self.piece_bb[side][2] | self.piece_bb[side][3] | self.piece_bb[side][4]) == Bitboard::zero()
     }
 }
 
@@ -351,6 +332,7 @@ fn init_move_counter(fen_part_6: &str) -> u16 {
 
 // ZOBRIST HASHING
 
+#[inline(always)]
 pub fn get_piece_zobrist_index(piece: Piece, side: Side, sq: usize) -> usize {
     ((piece as usize + side as usize * 6)) * 64 + sq
 }

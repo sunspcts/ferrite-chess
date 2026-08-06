@@ -6,7 +6,7 @@ const BISHOP_VALUE: i64 = 365;
 const ROOK_VALUE: i64 = 477;
 const QUEEN_VALUE: i64 = 1025;
 
-pub fn piece_value(piece: Piece) -> i64 {
+pub fn piece_value_i64(piece: Piece) -> i64 {
     match piece {
         Piece::Pawn => PAWN_VALUE,
         Piece::Knight => KNIGHT_VALUE,
