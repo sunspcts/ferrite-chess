@@ -43,7 +43,7 @@ const fn xorshift(mut state: u64) -> u64 {
 pub struct GameState {
     pub active_side: Side,
     pub castling: u8,
-    half_moves: u8,
+    pub half_moves: u8,
     move_counter: u16,
     pub en_passant_square: Option<u8>, //unfortunately, it's unprofessional to call this the holy_hell_square.
     pub curr_zobrist_key: u64,

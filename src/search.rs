@@ -16,8 +16,8 @@ pub struct SearchEnv<'a> {
 }
 
 impl<'a> SearchEnv<'a> {
-    pub fn is_repetition(&self, key: u64) -> bool {
-        self.hash_history.contains(&key)
+    pub fn is_repetition(&self, key: u64, half_moves: usize) -> bool {
+        self.hash_history.iter().rev().take(half_moves).any(|&k| k == key)
     }
 
     pub fn check_stop(&mut self) -> bool {
@@ -68,7 +68,7 @@ fn negamax(board: &Board, mut context: SearchContext, env: &mut SearchEnv) -> i6
         return 0;
     }
 
-    if context.ply > 0 && env.is_repetition(board.game_state.curr_zobrist_key) {
+    if context.ply > 0 && env.is_repetition(board.game_state.curr_zobrist_key, board.game_state.half_moves as usize) {
         return 0;
     }
 
