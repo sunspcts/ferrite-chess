@@ -361,6 +361,7 @@ fn quiescense(board: &Board, mut context: SearchContext, env: &mut SearchEnv) ->
     board.generate_pseudolegal_moves(&mut env.move_lists[ply]);
     let mut moves = env.move_lists[ply];
     moves.retain(|mv| mv.is_capture() || mv.is_promo());
+
     moves.sort_by(|a, b| b.score().cmp(&a.score()));
 
     for &candidate_move in &moves {
@@ -401,10 +402,6 @@ fn search_fixed_depth(board: &Board, depth: i64, env: &mut SearchEnv) -> (i64, O
     let beta = 1_000_000;
 
     for &candidate_move in &moves {
-        if env.stopped {
-            break;
-        }
-
         if let Some(next_board) = board.make(candidate_move) {
             let context = SearchContext {
                 alpha: -beta,
