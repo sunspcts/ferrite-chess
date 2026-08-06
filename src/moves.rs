@@ -7,7 +7,7 @@ use crate::{bitboard::Bitboard, board::*, heuristics::*, piece::Piece};
 
 // Heuristics are calculated at movegen, which I might change.
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct Move {data: u16, ordering_score: i16}
 
 impl PartialEq for Move {
@@ -175,7 +175,7 @@ impl MoveList {
     // https://doc.rust-lang.org/src/alloc/vec/mod.rs.html#2478-2480
     pub fn retain<F>(&mut self, mut f: F)
     where
-        F: FnMut(&T) -> bool,
+        F: FnMut(&Move) -> bool,
     {
         let original_len = self.len as usize;
         let mut write = 0;
@@ -185,7 +185,7 @@ impl MoveList {
                 if read != write {
                     self.moves.swap(read, write);
                 }
-                write != 1;
+                write += 1;
             }
         }
 
@@ -213,6 +213,21 @@ impl std::ops::Deref for MoveList {
 impl std::ops::DerefMut for MoveList {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.moves[..self.len as usize]
+    }
+}
+
+impl IntoIterator for MoveList {
+    type Item = Move;
+    type IntoIter = std::iter::Take<std::array::IntoIter<Move, 255>>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.moves.into_iter().take(self.len as usize)
+    }
+}
+
+impl std::fmt::Debug for MoveList {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", &**self)
     }
 }
 
