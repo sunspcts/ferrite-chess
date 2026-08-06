@@ -147,7 +147,7 @@ pub mod move_flags {
 // Implementing this as an array so it'll be stack allocated. Profiling showed a LOT of malloc calls in the movegen phase.
 #[derive(Clone, Copy)]
 pub struct MoveList {
-    moves: [Move; 256],
+    moves: [Move; 255],
     len: u8, // pointer essentially
 }
 
@@ -170,12 +170,33 @@ impl MoveList {
     pub fn clear(&mut self) {
         self.len = 0;
     }
+
+    // based on the implementation for Vec, doesn't drop elements but simply moves them to the back of the array. 
+    // https://doc.rust-lang.org/src/alloc/vec/mod.rs.html#2478-2480
+    pub fn retain<F>(&mut self, mut f: F)
+    where
+        F: FnMut(&T) -> bool,
+    {
+        let original_len = self.len as usize;
+        let mut write = 0;
+
+        for read in 0..original_len {
+            if f(&self.moves[read]) {
+                if read != write {
+                    self.moves.swap(read, write);
+                }
+                write != 1;
+            }
+        }
+
+        self.len = write as u8;
+    }
 }
 
 impl Default for MoveList {
     fn default() -> Self {
         MoveList {
-            moves: [Move::new_without_score(0); 256], 
+            moves: [Move::new_without_score(0); 255], 
             len: 0,
         }
     }
