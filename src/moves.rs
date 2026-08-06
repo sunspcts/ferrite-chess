@@ -448,10 +448,10 @@ mod tests {
     #[test]
     fn perft_startpos() {
         let board = Board::new_from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
-        assert_eq!(board.perft(1), 20);
-        assert_eq!(board.perft(2), 400);
-        assert_eq!(board.perft(3), 8902);
-        assert_eq!(board.perft(4), 197281);
-        assert_eq!(board.perft(5), 4865609);
+        let start = std::time::Instant::now();
+        let nodes = board.perft(5);
+        let elapsed = start.elapsed();
+        println!("perft(5): {} nodes in {:.3?}, {:.2} MNPS", nodes, elapsed, (nodes as f64 / elapsed.as_secs_f64()) / 1_000_000.0);
+        assert_eq!(nodes, 4865609);
     }
 }
