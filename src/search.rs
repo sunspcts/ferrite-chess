@@ -95,7 +95,7 @@ impl SearchControl {
 }
 
 
-#[derive(Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 #[repr(u8)]
 pub enum NodeType {
     #[default]
@@ -191,20 +191,28 @@ impl TT {
     pub fn store(&mut self, entry: TTEntry) {
         let index = (entry.zobrist_key as usize) % self.entries.len();
         let existing = self.entries[index];
+        let mut entry = entry;
         if existing.node_type != NodeType::None {
-            if existing.zobrist_key == entry.zobrist_key {
-                let is_stale = existing.age != entry.age;
-                if !is_stale && existing.depth > entry.depth {
-                    if existing.move_data == 0 && entry.move_data != 0 {
+            let is_stale = existing.age != entry.age;
+            if !is_stale {
+                let existing_is_pv = existing.node_type == NodeType::Exact;
+                let entry_is_pv = entry.node_type == NodeType::Exact;
+
+                let existing_is_better = if existing_is_pv && !entry_is_pv {
+                    existing.depth >= entry.depth
+                } else {
+                    existing.depth > entry.depth
+                };
+
+                if existing_is_better {
+                    if existing.zobrist_key == entry.zobrist_key && existing.move_data == 0 && entry.move_data != 0 {
                         self.entries[index].move_data = entry.move_data;
                     }
                     return;
                 }
-            } else {
-                let is_stale = existing.age != entry.age;
-                if !is_stale && existing.depth > entry.depth {
-                    return;
-                }
+            }
+            if existing.zobrist_key == entry.zobrist_key && entry.move_data == 0 && existing.move_data != 0 {
+                entry.move_data = existing.move_data;
             }
         }
         self.entries[index] = entry;
