@@ -44,7 +44,7 @@ struct SearchContext {
     pub ply: i64,
     pub depth: i64,
     pub allow_nmp: bool,
-} 
+}
 
 impl SearchContext {
     pub fn next_context(&self, depth: i64) -> Self {
@@ -168,12 +168,12 @@ pub struct TT {
     entries: Vec<TTEntry>,
 }
 
-impl TT {                                                                                                                                                                                                           
-    pub fn new(size_mb: usize) -> Self {                                                                                                                                                                        
+impl TT {
+    pub fn new(size_mb: usize) -> Self {
         let num_entries = (size_mb * 2_usize.pow(20)) / std::mem::size_of::<TTEntry>();
-        TT {                                                                                                                                                                                                        
-            entries: vec![TTEntry::default(); num_entries],                                                                                                                                                                       
-        }                                                                                                                                                                                                           
+        TT {
+            entries: vec![TTEntry::default(); num_entries],
+        }
     }
 
     pub fn clear(&mut self) {
@@ -346,7 +346,7 @@ fn negamax(board: &Board, mut context: SearchContext, env: &mut SearchEnv) -> i6
 
 fn quiescense(board: &Board, mut context: SearchContext, env: &mut SearchEnv) -> i64 {
     if env.step_node_and_check() { return 0; }
-    
+
     let static_eval = eval(board);
     let mut best_value = static_eval;
 

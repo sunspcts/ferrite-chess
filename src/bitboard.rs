@@ -6,7 +6,7 @@ pub struct Bitboard(u64);
 impl Default for Bitboard {
     fn default() -> Self {
         Bitboard(0)
-    } 
+    }
 }
 
 impl Bitboard {

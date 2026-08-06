@@ -47,14 +47,14 @@ impl Board {
 
     pub fn generate_leaper_moves(
         &self,
-        from_sq: u16, 
+        from_sq: u16,
         moves: &mut MoveList,
         piece: Piece,
     ) {
         let side = self.game_state.active_side;
         let friendly_pieces = self.side_bb[side as usize];
         let enemy_pieces = self.side_bb[(side as usize) ^ 1];
-        
+
         let raw_attacks = match piece {
             Piece::Knight => KNIGHT_ATTACKS[from_sq as usize],
             Piece::King => KING_ATTACKS[from_sq as usize],
@@ -64,13 +64,13 @@ impl Board {
         let valid_moves = raw_attacks & !friendly_pieces;
         let captures = valid_moves & enemy_pieces;
         let quiets = valid_moves ^ captures;
-        
+
         for to_sq in captures {
-            moves.push(Move::new(self, from_sq, to_sq, move_flags::CAPTURE, piece)); 
+            moves.push(Move::new(self, from_sq, to_sq, move_flags::CAPTURE, piece));
         }
 
         for to_sq in quiets {
-            moves.push(Move::new(self, from_sq, to_sq, move_flags::QUIET, piece)); 
+            moves.push(Move::new(self, from_sq, to_sq, move_flags::QUIET, piece));
         }
     }
 
@@ -82,13 +82,13 @@ impl Board {
     ) {
         let side = self.game_state.active_side;
         let friendly_pieces = self.side_bb[side as usize];
-        let enemy_pieces = self.side_bb[(side as usize) ^ 1]; 
+        let enemy_pieces = self.side_bb[(side as usize) ^ 1];
         let occupancy = friendly_pieces | enemy_pieces;
 
         let dirs: &[usize] = match piece {
             Piece::Rook => &[0,1,2,3],
             Piece::Bishop => &[4,5,6,7],
-            Piece::Queen => &[0,1,2,3,4,5,6,7], 
+            Piece::Queen => &[0,1,2,3,4,5,6,7],
             _ => panic!("Piece passed to generate_slider_moves is not a slider!"),
         };
 
@@ -101,13 +101,13 @@ impl Board {
         let valid_moves = raw_attacks & !friendly_pieces;
         let captures = valid_moves & enemy_pieces;
         let quiets = valid_moves ^ captures;
-        
+
         for to_sq in captures {
-            moves.push(Move::new(self, from_sq, to_sq, move_flags::CAPTURE, piece)); 
+            moves.push(Move::new(self, from_sq, to_sq, move_flags::CAPTURE, piece));
         }
 
         for to_sq in quiets {
-            moves.push(Move::new(self, from_sq, to_sq, move_flags::QUIET, piece)); 
+            moves.push(Move::new(self, from_sq, to_sq, move_flags::QUIET, piece));
         }
     }
 
@@ -176,7 +176,7 @@ impl Board {
 
     pub fn generate_castling_moves(
         &self,
-        moves: &mut MoveList, 
+        moves: &mut MoveList,
     ) {
         let side = self.game_state.active_side;
         let all_pieces = self.side_bb[0] | self.side_bb[1];

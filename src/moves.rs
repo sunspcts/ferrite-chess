@@ -1,6 +1,6 @@
 use crate::{bitboard::Bitboard, board::*, heuristics::*, piece::Piece};
 
-// Data field is structured as follows: 
+// Data field is structured as follows:
 // First 4 bits encode any flags that make_move needs to know.
 // Next 6 bits represent the square the piece is moving to.
 // Lowest 6 bits represent the square the piece is moving from.
@@ -56,7 +56,7 @@ impl Move {
             ordering_score: 0,
         }
     }
-    
+
     // Helpers for unpacking data field
     pub fn from_sq(self) -> u16 {
         self.data & 0x3F
@@ -136,15 +136,15 @@ pub mod move_flags {
     pub const DOUBLE_PAWN_PUSH: u16    = 0b0001;
     pub const KING_CASTLE: u16         = 0b0010;
     pub const QUEEN_CASTLE: u16        = 0b0011;
-    
+
     pub const CAPTURE: u16             = 0b0100;
     pub const EP_CAPTURE: u16          = 0b0101;
-    
+
     pub const KNIGHT_PROMO: u16        = 0b1000;
     pub const BISHOP_PROMO: u16        = 0b1001;
     pub const ROOK_PROMO: u16          = 0b1010;
     pub const QUEEN_PROMO: u16         = 0b1011;
-    
+
     pub const KNIGHT_PROMO_CAPTURE: u16 = 0b1100;
     pub const BISHOP_PROMO_CAPTURE: u16 = 0b1101;
     pub const ROOK_PROMO_CAPTURE: u16   = 0b1110;
@@ -178,7 +178,7 @@ impl MoveList {
         self.len = 0;
     }
 
-    // based on the implementation for Vec, doesn't drop elements but simply moves them to the back of the array. 
+    // based on the implementation for Vec, doesn't drop elements but simply moves them to the back of the array.
     // https://doc.rust-lang.org/src/alloc/vec/mod.rs.html#2478-2480
     pub fn retain<F>(&mut self, mut f: F)
     where
@@ -198,30 +198,12 @@ impl MoveList {
 
         self.len = write as u8;
     }
-
-    pub fn pick(&mut self, index: usize, tt_move: Option<Move>) {
-        let mut bestindex = index;
-        let mut best_score = i16::MIN;
-
-        for i in index..self.len() {
-            let mv = self.moves[i];
-            let score = if Some(mv) == tt_move { i16::MAX } else { mv.score() };
-            if score > best_score {
-                best_score = score;
-                bestindex = i;
-            }
-        }
-
-        if bestindex != index {
-            self.moves.swap(index, bestindex);
-        }
-    }
 }
 
 impl Default for MoveList {
     fn default() -> Self {
         MoveList {
-            moves: [Move::new_without_score(0); 256], 
+            moves: [Move::new_without_score(0); 256],
             len: 0,
         }
     }
@@ -284,12 +266,12 @@ impl Board {
         let piece = board[from];
         let flags = mv.flags();
 
-        // are we castling? either direction. 
+        // are we castling? either direction.
         if flags & 0b1110 == move_flags::KING_CASTLE {
             let transit_sq = match to {
-                2 => 3,   
-                6 => 5,   
-                58 => 59, 
+                2 => 3,
+                6 => 5,
+                58 => 59,
                 62 => 61,
                 _ => unreachable!(),
             };
@@ -299,7 +281,7 @@ impl Board {
                 return None;
             }
         }
-        
+
         board.game_state.inc_halfmoves();
         // xoring out the old ep square.
         if let Some(old_ep_square) = board.game_state.en_passant_square {
@@ -352,7 +334,7 @@ impl Board {
         // Just doing this on every king/rook move for now. Might change the mechanism but for now it's cool.
         if piece == Piece::King || piece == Piece::Rook {
             board.update_castling_rights(from, to);
-        } 
+        }
 
         // castling moves only encode the king move, gotta move the rook as well.
         if flags & 0b1110 == move_flags::KING_CASTLE {
@@ -373,7 +355,7 @@ impl Board {
         // Switch the active side and update the hash.
         board.game_state.active_side = enemy;
         board.game_state.curr_zobrist_key ^= ZOBRIST_RANDOMS[768 + 16 + 8];
-        
+
         let king_square = board.piece_bb[side as usize][Piece::King as usize].trailing_zeros() as u16;
         let is_legal = !board.is_attacked(king_square, enemy);
 

@@ -158,7 +158,7 @@ struct GoParameters {
 impl GoParameters {
     fn new(line: &str) -> GoParameters {
         let mut parts = line.split_whitespace();
-        
+
         let mut params = Self::default();
 
         while let Some(part) = parts.next() {
@@ -214,7 +214,7 @@ impl GoParameters {
                 }
                 "infinite" => params.infinite = true,
                 _ => {}
-                
+
             }
         }
 
@@ -270,7 +270,7 @@ fn parse_uci_position(curr_board: Board, line: &str) -> (Board, Vec<u64>) {
     for m in parts {
         if m == "moves" {
             continue
-        } 
+        }
 
         if let Some(mv) = Move::from_uci(&board, m) {
             if let Some(next_board) = board.make(mv) {
@@ -304,7 +304,7 @@ mod tests {
         let startpos_board = Board::new_from_fen(STARTPOS_FEN);
         //Scotch my beloved <3
         let (board, _) = parse_uci_position(startpos_board, "position startpos moves e2e4 e7e5 g1f3 b8c6 d2d4");
-        let fen_board = Board::new_from_fen("r1bqkbnr/pppp1ppp/2n5/4p3/3PP3/5N2/PPP2PPP/RNBQKB1R b KQkq d3 0 3"); 
+        let fen_board = Board::new_from_fen("r1bqkbnr/pppp1ppp/2n5/4p3/3PP3/5N2/PPP2PPP/RNBQKB1R b KQkq d3 0 3");
 
         assert_eq!(board, fen_board)
     }

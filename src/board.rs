@@ -94,7 +94,7 @@ impl std::ops::Index<u16> for Board {
     type Output = Piece;
 
     fn index(&self, sq: u16) -> &Self::Output {
-        &self.mailbox[sq as usize] 
+        &self.mailbox[sq as usize]
     }
 }
 
@@ -109,13 +109,13 @@ impl Board {
         let fen_parts: Vec<&str> = fen.split_ascii_whitespace().collect();
         let (piece_bb, side_bb, mailbox) = init_bb_mb_fen(fen_parts[0]);
 
-        let game_state = GameState { 
-            active_side: init_active_side(fen_parts[1]), 
-            castling: init_castling_rights(fen_parts[2]), 
+        let game_state = GameState {
+            active_side: init_active_side(fen_parts[1]),
+            castling: init_castling_rights(fen_parts[2]),
             en_passant_square: init_ep_square(fen_parts[3]),
             half_moves: init_halfmoves(fen_parts[4]),
             move_counter: init_move_counter(fen_parts[5]),
-            curr_zobrist_key: 0 
+            curr_zobrist_key: 0
         };
 
         let mut board = Board {
@@ -133,9 +133,9 @@ impl Board {
     fn get_side_at(&self, square: u16) -> Option<Side> {
         let mask = Bitboard::new(1 << square);
         if (self.side_bb[0] & mask) != Bitboard::zero() {
-            return Some(Side::White) 
+            return Some(Side::White)
         } else if (self.side_bb[1] & mask) != Bitboard::zero() {
-            return Some(Side::Black) 
+            return Some(Side::Black)
         }
         None
     }
@@ -196,7 +196,7 @@ impl Board {
         self.game_state.curr_zobrist_key = key
     }
 
-    
+
     pub fn update_castling_rights(&mut self, from_sq: u16, to_sq: u16) {
         let old_castling = self.game_state.castling;
         match from_sq {
@@ -243,7 +243,7 @@ impl Board {
 
         if let Some(sq) = self.game_state.en_passant_square {
             let file = sq % 8;
-            board.game_state.curr_zobrist_key ^= ZOBRIST_RANDOMS[768 + 16 + file as usize]; 
+            board.game_state.curr_zobrist_key ^= ZOBRIST_RANDOMS[768 + 16 + file as usize];
             board.game_state.en_passant_square = None;
         }
 
@@ -330,7 +330,7 @@ fn init_castling_rights(fen_part_3: &str) -> u8 {
 
 fn init_ep_square(fen_part_4: &str) -> Option<u8> {
     if fen_part_4 == "-" {
-        None 
+        None
     } else {
         let mut chars = fen_part_4.chars();
         let file_char = chars.next().unwrap();
