@@ -6,14 +6,13 @@ use crate::{attacks::{KING_ATTACKS, KNIGHT_ATTACKS, PAWN_ATTACKS}, bitboard::Bit
 
 pub const ZOBRIST_RANDOMS: [u64; 793] = init_zobrist_random_array();
 
-const MAX_GAME_MOVES: usize = 1024; // pretty arbitrary. 
 const PIECE_CHARS: &str = "kqrbnpKQRBNP";
 
 //evaluated at compile time for quick accesses. we will be using this a lot!
 const fn init_zobrist_random_array() -> [u64; 793] {
     let mut arr = [0; 793];
     let mut i = 0;
-    let mut state = 0x13371337;
+    let mut state = 0x67676767;  // six seven !!
 
     while i < 100 {
         state = xorshift(state); // quick mix
@@ -235,6 +234,26 @@ impl Board {
             Side::White => 1,
             Side::Black => -1
         }
+    }
+
+    pub fn make_null_move(&self) -> Board {
+        let mut board = *self;
+        board.game_state.active_side = self.game_state.active_side.flip();
+        board.game_state.curr_zobrist_key ^= ZOBRIST_RANDOMS[768 + 16 + 8];
+
+        if let Some(sq) = self.game_state.en_passant_square {
+            let file = sq % 8;
+            board.game_state.curr_zobrist_key ^= ZOBRIST_RANDOMS[768 + 16 + file as usize]; 
+            board.game_state.en_passant_square = None;
+        }
+
+        board.game_state.inc_halfmoves();
+        board
+    }
+
+    pub fn king_pawn_only(&self) -> bool {
+        let side = self.game_state.active_side as usize;
+        (self.piece_bb[side][1] | self.piece_bb[side][2] | self.piece_bb[side][3] | self.piece_bb[side][4]) == Bitboard::zero()
     }
 }
 

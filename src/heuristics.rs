@@ -14,7 +14,7 @@ const fn init_mvv_lva_table() -> [[i16; 6]; 6] {
     }
     tab
 }
-
+#[inline(always)]
 pub fn calc_mvv_lva_heuristic(piece: Piece, enemy_piece: Piece) -> i16 {
     MVV_LVA_TAB[enemy_piece as usize][piece as usize]
 }

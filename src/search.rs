@@ -4,6 +4,7 @@ use crate::{board::Board, eval::eval, moves::{Move, MoveList}};
 const MATE_EVAL: i64 = 30000;
 const NODE_CHECK_INTERVAL_MASK: u64 = 2047; // Check search control every 2048 nodes
 pub const MAX_PLY: usize = 256;
+const NMP_REDUCTION: i64 = 3;
 
 // Holds global search variables shared across the recursion
 pub struct SearchEnv<'a> {
@@ -23,14 +24,6 @@ impl<'a> SearchEnv<'a> {
         self.hash_history.iter().rev().take(half_moves).any(|&k| k == key)
     }
 
-    pub fn check_stop(&mut self) -> bool {
-        if self.stopped || self.search_control.is_stopped() {
-            self.stopped = true;
-            return true;
-        }
-        false
-    }
-
     #[inline(always)]
     pub fn step_node_and_check(&mut self) -> bool {
         self.nodes_visited += 1;
@@ -38,7 +31,8 @@ impl<'a> SearchEnv<'a> {
             self.stopped = true;
             return true;
         }
-        if (self.nodes_visited & NODE_CHECK_INTERVAL_MASK == 0) && self.check_stop() {
+        if (self.nodes_visited & NODE_CHECK_INTERVAL_MASK == 0) && self.search_control.is_stopped() {
+            self.stopped = true;
             return true;
         }
         false
@@ -186,6 +180,34 @@ impl TT {
     }
 }
 
+fn nmp(board: &Board, context: &SearchContext, env: &mut SearchEnv) -> Option<i64> {
+    if context.depth >= 3
+        && context.ply > 0
+        && !board.king_pawn_only()
+        && !board.is_in_check()
+        && eval(board) >= context.beta
+    {
+        let null_board = board.make_null_move();
+        let null_context = SearchContext {
+            alpha: -context.beta,
+            beta: -context.beta + 1,
+            depth: context.depth - 1 - NMP_REDUCTION,
+            ply: context.ply + 1,
+        };
+
+        let null_score = -negamax(&null_board, null_context, env);
+
+        if env.stopped {
+            return Some(0);
+        }
+
+        if null_score >= context.beta {
+            return Some(context.beta);
+        }
+    }
+    None
+}
+
 fn negamax(board: &Board, mut context: SearchContext, env: &mut SearchEnv) -> i64 {
     if env.step_node_and_check() { return 0; }
 
@@ -204,6 +226,13 @@ fn negamax(board: &Board, mut context: SearchContext, env: &mut SearchEnv) -> i6
         if let Some(score) = tt_entry.and_then(|e| e.cutoff(context.alpha, context.beta, context.depth)) {
             return score;
         }
+    }
+
+    if let Some(nmp_score) = nmp(board, &context, env) {
+        if env.stopped {
+            return 0;
+        }
+        return nmp_score;
     }
 
     let ply = (context.ply as usize).min(MAX_PLY - 1);
@@ -239,7 +268,7 @@ fn negamax(board: &Board, mut context: SearchContext, env: &mut SearchEnv) -> i6
             }
 
             if context.update_alpha(score) {
-                break; // Beta cutoff!
+                break;
             }
         }
     }
