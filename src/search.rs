@@ -18,6 +18,7 @@ pub struct SearchEnv<'a> {
 }
 
 impl<'a> SearchEnv<'a> {
+    #[inline(always)]
     pub fn is_repetition(&self, key: u64, half_moves: usize) -> bool {
         self.hash_history.iter().rev().take(half_moves).any(|&k| k == key)
     }
@@ -25,6 +26,19 @@ impl<'a> SearchEnv<'a> {
     pub fn check_stop(&mut self) -> bool {
         if self.stopped || self.search_control.is_stopped() {
             self.stopped = true;
+            return true;
+        }
+        false
+    }
+
+    #[inline(always)]
+    pub fn step_node_and_check(&mut self) -> bool {
+        self.nodes_visited += 1;
+        if self.stopped || self.nodes_visited >= self.node_limit {
+            self.stopped = true;
+            return true;
+        }
+        if (self.nodes_visited & NODE_CHECK_INTERVAL_MASK == 0) && self.check_stop() {
             return true;
         }
         false
@@ -37,6 +51,31 @@ struct SearchContext {
     pub ply: i64,
     pub depth: i64,
 } 
+
+impl SearchContext {
+    pub fn next_context(&self, depth: i64) -> Self {
+        SearchContext { alpha: -self.beta, beta: -self.alpha, ply: self.ply + 1, depth }
+    }
+
+    #[inline]
+    pub fn update_alpha(&mut self, score: i64) -> bool {
+        if score > self.alpha {
+            self.alpha = score;
+        }
+        self.alpha >= self.beta
+    }
+
+    #[inline]
+    pub fn node_type(&self, max_score: i64, old_alpha: i64) -> NodeType {
+        if max_score >= self.beta {
+            NodeType::LowerBound
+        } else if max_score > old_alpha {
+            NodeType::Exact
+        } else {
+            NodeType::UpperBound
+        }
+    }
+}
 
 #[derive(Clone)]
 pub struct SearchControl {
@@ -58,17 +97,97 @@ impl SearchControl {
 }
 
 
+#[derive(Clone, Copy, PartialEq, Eq, Default)]
+#[repr(u8)]
+pub enum NodeType {
+    #[default]
+    None = 0,
+    Exact = 1,
+    LowerBound = 2,
+    UpperBound = 3,
+}
+
+#[derive(Clone, Copy, Default)]
+pub struct TTEntry {
+    pub zobrist_key: u64,
+    pub score: i16,
+    pub move_data: u16,
+    pub depth: i8,
+    pub node_type: NodeType,
+    pub age: u8,
+}
+
+impl TTEntry {
+    pub fn best_move(&self) -> Option<Move> {
+        if self.move_data == 0 {
+            None
+        } else {
+            Some(Move::new_without_score(self.move_data))
+        }
+    }
+
+    pub fn cutoff(&self, alpha: i64, beta: i64, depth: i64) -> Option<i64> {
+        if (self.depth as i64) >= depth {
+            let score = self.score as i64;
+            match self.node_type {
+                NodeType::Exact => Some(score),
+                NodeType::LowerBound if score >= beta => Some(score),
+                NodeType::UpperBound if score <= alpha => Some(score),
+                _ => None,
+            }
+        } else {
+            None
+        }
+    }
+}
+
+pub struct TT {
+    entries: Vec<TTEntry>,
+}
+
+impl TT {                                                                                                                                                                                                           
+    pub fn new(size_mb: usize) -> Self {                                                                                                                                                                        
+        let num_entries = (size_mb * 2_usize.pow(20)) / std::mem::size_of::<TTEntry>();
+        TT {                                                                                                                                                                                                        
+            entries: vec![TTEntry::default(); num_entries],                                                                                                                                                                       
+        }                                                                                                                                                                                                           
+    }
+
+    pub fn clear(&mut self) {
+        self.entries.fill(TTEntry::default());
+    }
+
+    pub fn get(&self, zobrist_key: u64) -> Option<TTEntry> {
+        let index = (zobrist_key as usize) % self.entries.len();
+        let entry = self.entries[index];
+        if entry.node_type != NodeType::None && entry.zobrist_key == zobrist_key {
+            Some(entry)
+        } else {
+            None
+        }
+    }
+
+    pub fn store(&mut self, entry: TTEntry) {
+        let index = (entry.zobrist_key as usize) % self.entries.len();
+        let existing = self.entries[index];
+        if existing.node_type != NodeType::None {
+            if existing.zobrist_key == entry.zobrist_key {
+                if existing.depth > entry.depth {
+                    return;
+                }
+            } else {
+                let is_stale = existing.age != entry.age;
+                if !is_stale && existing.depth > entry.depth {
+                    return;
+                }
+            }
+        }
+        self.entries[index] = entry;
+    }
+}
+
 fn negamax(board: &Board, mut context: SearchContext, env: &mut SearchEnv) -> i64 {
-    env.nodes_visited += 1;
-
-    if env.stopped || env.nodes_visited >= env.node_limit {
-        env.stopped = true;
-        return 0;
-    }
-
-    if (env.nodes_visited & NODE_CHECK_INTERVAL_MASK == 0) && env.check_stop() {
-        return 0;
-    }
+    if env.step_node_and_check() { return 0; }
 
     if context.ply > 0 && env.is_repetition(board.game_state.curr_zobrist_key, board.game_state.half_moves as usize) {
         return 0;
@@ -78,27 +197,19 @@ fn negamax(board: &Board, mut context: SearchContext, env: &mut SearchEnv) -> i6
         return quiescense(board, context, env);
     }
 
-
     let tt_entry = env.tt.get(board.game_state.curr_zobrist_key);
     let tt_move = tt_entry.and_then(|e| e.best_move());
 
     if context.ply > 0 {
-        if let Some(entry) = tt_entry {
-            if (entry.depth as i64) >= context.depth {
-                let tt_score = entry.score as i64;
-                match entry.node_type {
-                    NodeType::Exact => return tt_score,
-                    NodeType::LowerBound if tt_score >= context.beta => return tt_score,
-                    NodeType::UpperBound if tt_score <= context.alpha => return tt_score,
-                    _ => {}
-                }
-            }
+        if let Some(score) = tt_entry.and_then(|e| e.cutoff(context.alpha, context.beta, context.depth)) {
+            return score;
         }
     }
 
     let ply = (context.ply as usize).min(MAX_PLY - 1);
     board.generate_pseudolegal_moves(&mut env.move_lists[ply]);
     let mut moves = env.move_lists[ply];
+
     moves.sort_by(|a, b| {
         let score_a = if Some(*a) == tt_move { i16::MAX } else { a.score() };
         let score_b = if Some(*b) == tt_move { i16::MAX } else { b.score() };
@@ -114,15 +225,8 @@ fn negamax(board: &Board, mut context: SearchContext, env: &mut SearchEnv) -> i6
         if let Some(next_board) = board.make(candidate_move) {
             legal_moves_count += 1;
 
-            let next_context = SearchContext {
-                alpha: -context.beta,
-                beta: -context.alpha,
-                depth: context.depth - 1,
-                ply: context.ply + 1,
-            };
-
             env.hash_history.push(board.game_state.curr_zobrist_key);
-            let score = -negamax(&next_board, next_context, env);
+            let score = -negamax(&next_board, context.next_context(context.depth - 1), env);
             env.hash_history.pop();
 
             if env.stopped {
@@ -134,12 +238,8 @@ fn negamax(board: &Board, mut context: SearchContext, env: &mut SearchEnv) -> i6
                 best_move = Some(candidate_move);
             }
 
-            if score > context.alpha {
-                context.alpha = score;
-            }
-
-            if context.alpha >= context.beta {
-                break; // Beta cutoff! Remaining moves are pruned without executing board.make()
+            if context.update_alpha(score) {
+                break; // Beta cutoff!
             }
         }
     }
@@ -152,13 +252,7 @@ fn negamax(board: &Board, mut context: SearchContext, env: &mut SearchEnv) -> i6
         }
     }
 
-    let node_type = if max_score >= context.beta {
-        NodeType::LowerBound
-    } else if max_score > old_alpha {
-        NodeType::Exact
-    } else {
-        NodeType::UpperBound
-    };
+    let node_type = context.node_type(max_score, old_alpha);
 
     if !env.stopped {
         env.tt.store(TTEntry {
@@ -175,16 +269,7 @@ fn negamax(board: &Board, mut context: SearchContext, env: &mut SearchEnv) -> i6
 }
 
 fn quiescense(board: &Board, mut context: SearchContext, env: &mut SearchEnv) -> i64 {
-    env.nodes_visited += 1;
-
-    if env.stopped || env.nodes_visited >= env.node_limit {
-        env.stopped = true;
-        return 0;
-    }
-
-    if (env.nodes_visited & NODE_CHECK_INTERVAL_MASK == 0) && env.check_stop() {
-        return 0;
-    }
+    if env.step_node_and_check() { return 0; }
     
     let static_eval = eval(board);
 
@@ -205,27 +290,19 @@ fn quiescense(board: &Board, mut context: SearchContext, env: &mut SearchEnv) ->
 
     for &candidate_move in &moves {
         if let Some(next_board) = board.make(candidate_move) {
-            let next_context = SearchContext {
-                alpha: -context.beta,
-                beta: -context.alpha,
-                depth: 0,
-                ply: context.ply + 1,
-            };
 
-            let score = -quiescense(&next_board, next_context, env);
+            let score = -quiescense(&next_board, context.next_context(0), env);
 
             if env.stopped {
                 return 0;
             }
 
-            if score >= context.beta {
-                return score;
-            }
-            if score >= best_value {
+            if score > best_value {
                 best_value = score;
             }
-            if score > context.alpha {
-                context.alpha = score;
+
+            if context.update_alpha(score) {
+                return score;
             }
         }
     }
@@ -321,79 +398,4 @@ pub fn search(board: &Board, max_depth: i64, env: &mut SearchEnv) -> (i64, Optio
     }
 
     (global_best_score, global_best_move)
-}
-
-#[derive(Clone, Copy, PartialEq, Eq, Default)]
-#[repr(u8)]
-pub enum NodeType {
-    #[default]
-    None = 0,
-    Exact = 1,
-    LowerBound = 2,
-    UpperBound = 3,
-}
-
-#[derive(Clone, Copy, Default)]
-pub struct TTEntry {
-    pub zobrist_key: u64,
-    pub score: i16,
-    pub move_data: u16,
-    pub depth: i8,
-    pub node_type: NodeType,
-    pub age: u8,
-}
-
-impl TTEntry {
-    pub fn best_move(&self) -> Option<Move> {
-        if self.move_data == 0 {
-            None
-        } else {
-            Some(Move::new_without_score(self.move_data))
-        }
-    }
-}
-
-pub struct TT {
-    entries: Vec<TTEntry>,
-}
-
-impl TT {                                                                                                                                                                                                           
-    pub fn new(size_mb: usize) -> Self {                                                                                                                                                                        
-        let num_entries = (size_mb * 2_usize.pow(20)) / std::mem::size_of::<TTEntry>();
-        TT {                                                                                                                                                                                                        
-            entries: vec![TTEntry::default(); num_entries],                                                                                                                                                                       
-        }                                                                                                                                                                                                           
-    }
-
-    pub fn clear(&mut self) {
-        self.entries.fill(TTEntry::default());
-    }
-
-    pub fn get(&self, zobrist_key: u64) -> Option<TTEntry> {
-        let index = (zobrist_key as usize) % self.entries.len();
-        let entry = self.entries[index];
-        if entry.node_type != NodeType::None && entry.zobrist_key == zobrist_key {
-            Some(entry)
-        } else {
-            None
-        }
-    }
-
-    pub fn store(&mut self, entry: TTEntry) {
-        let index = (entry.zobrist_key as usize) % self.entries.len();
-        let existing = self.entries[index];
-        if existing.node_type != NodeType::None {
-            if existing.zobrist_key == entry.zobrist_key {
-                if existing.depth > entry.depth {
-                    return;
-                }
-            } else {
-                let is_stale = existing.age != entry.age;
-                if !is_stale && existing.depth > entry.depth {
-                    return;
-                }
-            }
-        }
-        self.entries[index] = entry;
-    }
 }
