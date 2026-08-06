@@ -193,7 +193,11 @@ impl TT {
         let existing = self.entries[index];
         if existing.node_type != NodeType::None {
             if existing.zobrist_key == entry.zobrist_key {
-                if existing.depth > entry.depth {
+                let is_stale = existing.age != entry.age;
+                if !is_stale && existing.depth > entry.depth {
+                    if existing.move_data == 0 && entry.move_data != 0 {
+                        self.entries[index].move_data = entry.move_data;
+                    }
                     return;
                 }
             } else {
