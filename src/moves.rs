@@ -15,6 +15,7 @@ impl PartialEq for Move {
         self.data == other.data
     }
 }
+
 impl Eq for Move {}
 
 impl Move {

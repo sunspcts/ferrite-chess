@@ -1,4 +1,5 @@
 use crate::{attacks::*, bitboard::Bitboard, board::{Board, Side}, moves::*, piece::Piece};
+
 const PROMOTION_FLAGS: [u16; 4] = [move_flags::KNIGHT_PROMO, move_flags::BISHOP_PROMO, move_flags::ROOK_PROMO, move_flags::QUEEN_PROMO];
 
 const A_FILE_BB: Bitboard = Bitboard::new(0x0101010101010101);
@@ -10,8 +11,8 @@ const PROMOTION_RANKS_BB: Bitboard = Bitboard::new(0xFF000000000000FF);
 //Pseudolegal move generation. Legality checking is done at the make_move() stage.
 
 impl Board {
-    pub fn generate_pseudolegal_moves(&self) -> Vec<Move> {
-        let mut moves = Vec::with_capacity(256); 
+    pub fn generate_pseudolegal_moves(&self) -> MoveList {
+        let mut moves = MoveList::default();
         let side = self.game_state.active_side;
         self.generate_pawn_moves(&mut moves);
         self.generate_castling_moves(&mut moves);
@@ -43,7 +44,7 @@ impl Board {
     pub fn generate_leaper_moves(
         &self,
         from_sq: u16, 
-        moves: &mut Vec<Move>,
+        moves: &mut MoveList,
         piece: Piece,
     ) {
         let side = self.game_state.active_side;
@@ -72,7 +73,7 @@ impl Board {
     pub fn generate_slider_moves(
         &self,
         from_sq: u16,
-        moves: &mut Vec<Move>,
+        moves: &mut MoveList,
         piece: Piece,
     ) {
         let side = self.game_state.active_side;
@@ -109,7 +110,7 @@ impl Board {
     // directly lifted from old implementation, not ideal but it's fine.
     pub fn generate_pawn_moves(
         &self,
-        moves: &mut Vec<Move>,
+        moves: &mut MoveList,
     ) {
         let side = self.game_state.active_side;
         let pawns = self.piece_bb[side as usize][Piece::Pawn as usize];
@@ -171,7 +172,7 @@ impl Board {
 
     pub fn generate_castling_moves(
         &self,
-        moves: &mut Vec<Move>, 
+        moves: &mut MoveList, 
     ) {
         let side = self.game_state.active_side;
         let all_pieces = self.side_bb[0] | self.side_bb[1];
@@ -202,7 +203,7 @@ impl Board {
     }
 }
 
-fn pawn_move_helper(board: &Board, dest_bb: Bitboard, offset: i16, flag: u16, is_promotion: bool, moves: &mut Vec<Move>) {
+fn pawn_move_helper(board: &Board, dest_bb: Bitboard, offset: i16, flag: u16, is_promotion: bool, moves: &mut MoveList) {
     if is_promotion {
         for to_sq in dest_bb {
             let from_sq = (to_sq as i16 - offset) as u16;
