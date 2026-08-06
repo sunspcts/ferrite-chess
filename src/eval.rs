@@ -6,6 +6,17 @@ const BISHOP_VALUE: i64 = 365;
 const ROOK_VALUE: i64 = 477;
 const QUEEN_VALUE: i64 = 1025;
 
+pub fn piece_value(piece: Piece) -> i64 {
+    match piece {
+        Piece::Pawn => PAWN_VALUE,
+        Piece::Knight => KNIGHT_VALUE,
+        Piece::Bishop => BISHOP_VALUE,
+        Piece::Rook => ROOK_VALUE,
+        Piece::Queen => QUEEN_VALUE,
+        _ => 0,
+    }
+}
+
 //PeSTO middlegame tables.
 const PAWN_PST: [i64; 64] = [
       0,   0,   0,   0,   0,   0,  0,   0, // 8

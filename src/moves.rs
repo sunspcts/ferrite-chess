@@ -19,7 +19,6 @@ impl PartialEq for Move {
 impl Eq for Move {}
 
 impl Move {
-
     // Packs arguments, and calculates heuristics (Only mvv_lva for now.)
     pub fn new(board: &Board, from: u16, to: u16, flags: u16, piece: Piece) -> Self {
         let mut score = 0;
@@ -77,6 +76,14 @@ impl Move {
 
     pub fn is_promo(self) -> bool {
         self.flags() & 0b1000 != 0
+    }
+
+    pub fn captured_piece(self, board: &Board) -> Piece {
+        if self.flags() & move_flags::EP_CAPTURE != 0 {
+            Piece::Pawn
+        } else {
+            board[self.to_sq()]
+        }
     }
 
     pub fn score(self) -> i16 {
@@ -190,6 +197,24 @@ impl MoveList {
         }
 
         self.len = write as u8;
+    }
+
+    pub fn pick(&mut self, index: usize, tt_move: Option<Move>) {
+        let mut bestindex = index;
+        let mut best_score = i16::MIN;
+
+        for i in index..self.len() {
+            let mv = self.moves[i];
+            let score = if Some(mv) == tt_move { i16::MAX } else { mv.score() };
+            if score > best_score {
+                best_score = score;
+                bestindex = i;
+            }
+        }
+
+        if bestindex != index {
+            self.moves.swap(index, bestindex);
+        }
     }
 }
 

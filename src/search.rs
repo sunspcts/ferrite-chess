@@ -4,7 +4,6 @@ use crate::{board::Board, eval::eval, moves::{Move, MoveList}};
 const MATE_EVAL: i64 = 30000;
 const NODE_CHECK_INTERVAL_MASK: u64 = 2047; // Check search control every 2048 nodes
 pub const MAX_PLY: usize = 256;
-const NMP_REDUCTION: i64 = 3;
 
 // Holds global search variables shared across the recursion
 pub struct SearchEnv<'a> {
@@ -44,11 +43,18 @@ struct SearchContext {
     pub beta: i64,
     pub ply: i64,
     pub depth: i64,
+    pub allow_nmp: bool,
 } 
 
 impl SearchContext {
     pub fn next_context(&self, depth: i64) -> Self {
-        SearchContext { alpha: -self.beta, beta: -self.alpha, ply: self.ply + 1, depth }
+        SearchContext {
+            alpha: -self.beta,
+            beta: -self.alpha,
+            ply: self.ply + 1,
+            depth,
+            allow_nmp: true,
+        }
     }
 
     #[inline]
@@ -111,6 +117,29 @@ pub struct TTEntry {
     pub age: u8,
 }
 
+#[inline(always)]
+fn score_to_tt(score: i64, ply: i64) -> i16 {
+    if score > MATE_EVAL - 1000 {
+        (score + ply) as i16
+    } else if score < -MATE_EVAL + 1000 {
+        (score - ply) as i16
+    } else {
+        score as i16
+    }
+}
+
+#[inline(always)]
+fn score_from_tt(score: i16, ply: i64) -> i64 {
+    let s = score as i64;
+    if s > MATE_EVAL - 1000 {
+        s - ply
+    } else if s < -MATE_EVAL + 1000 {
+        s + ply
+    } else {
+        s
+    }
+}
+
 impl TTEntry {
     pub fn best_move(&self) -> Option<Move> {
         if self.move_data == 0 {
@@ -120,9 +149,9 @@ impl TTEntry {
         }
     }
 
-    pub fn cutoff(&self, alpha: i64, beta: i64, depth: i64) -> Option<i64> {
+    pub fn cutoff(&self, alpha: i64, beta: i64, depth: i64, ply: i64) -> Option<i64> {
         if (self.depth as i64) >= depth {
-            let score = self.score as i64;
+            let score = score_from_tt(self.score, ply);
             match self.node_type {
                 NodeType::Exact => Some(score),
                 NodeType::LowerBound if score >= beta => Some(score),
@@ -181,8 +210,12 @@ impl TT {
 }
 
 fn nmp(board: &Board, context: &SearchContext, env: &mut SearchEnv) -> Option<i64> {
-    if context.depth >= 3
+    let reduction = 2 + context.depth / 6;
+
+    if context.allow_nmp
+        && context.depth >= 3
         && context.ply > 0
+        && context.beta < MATE_EVAL - 100
         && !board.king_pawn_only()
         && !board.is_in_check()
         && eval(board) >= context.beta
@@ -191,11 +224,14 @@ fn nmp(board: &Board, context: &SearchContext, env: &mut SearchEnv) -> Option<i6
         let null_context = SearchContext {
             alpha: -context.beta,
             beta: -context.beta + 1,
-            depth: context.depth - 1 - NMP_REDUCTION,
+            depth: context.depth - 1 - reduction,
             ply: context.ply + 1,
+            allow_nmp: false,
         };
 
+        env.hash_history.push(board.game_state.curr_zobrist_key);
         let null_score = -negamax(&null_board, null_context, env);
+        env.hash_history.pop();
 
         if env.stopped {
             return Some(0);
@@ -215,7 +251,10 @@ fn negamax(board: &Board, mut context: SearchContext, env: &mut SearchEnv) -> i6
         return 0;
     }
 
-    if context.depth <= 0 {
+    let in_check = board.is_in_check();
+    let depth = if in_check { context.depth + 1 } else { context.depth };
+
+    if depth <= 0 {
         return quiescense(board, context, env);
     }
 
@@ -223,7 +262,7 @@ fn negamax(board: &Board, mut context: SearchContext, env: &mut SearchEnv) -> i6
     let tt_move = tt_entry.and_then(|e| e.best_move());
 
     if context.ply > 0 {
-        if let Some(score) = tt_entry.and_then(|e| e.cutoff(context.alpha, context.beta, context.depth)) {
+        if let Some(score) = tt_entry.and_then(|e| e.cutoff(context.alpha, context.beta, depth, context.ply)) {
             return score;
         }
     }
@@ -232,6 +271,14 @@ fn negamax(board: &Board, mut context: SearchContext, env: &mut SearchEnv) -> i6
         if env.stopped {
             return 0;
         }
+        env.tt.store(TTEntry {
+            zobrist_key: board.game_state.curr_zobrist_key,
+            score: score_to_tt(nmp_score, context.ply),
+            move_data: 0,
+            depth: depth as i8,
+            node_type: NodeType::LowerBound,
+            age: env.age,
+        });
         return nmp_score;
     }
 
@@ -255,7 +302,7 @@ fn negamax(board: &Board, mut context: SearchContext, env: &mut SearchEnv) -> i6
             legal_moves_count += 1;
 
             env.hash_history.push(board.game_state.curr_zobrist_key);
-            let score = -negamax(&next_board, context.next_context(context.depth - 1), env);
+            let score = -negamax(&next_board, context.next_context(depth - 1), env);
             env.hash_history.pop();
 
             if env.stopped {
@@ -274,7 +321,7 @@ fn negamax(board: &Board, mut context: SearchContext, env: &mut SearchEnv) -> i6
     }
 
     if legal_moves_count == 0 {
-        if board.is_in_check() {
+        if in_check {
             return -MATE_EVAL + context.ply;
         } else {
             return 0; // Stalemate
@@ -286,9 +333,9 @@ fn negamax(board: &Board, mut context: SearchContext, env: &mut SearchEnv) -> i6
     if !env.stopped {
         env.tt.store(TTEntry {
             zobrist_key: board.game_state.curr_zobrist_key,
-            score: max_score as i16,
+            score: score_to_tt(max_score, context.ply),
             move_data: best_move.map(|m| m.data()).unwrap_or(0),
-            depth: context.depth as i8,
+            depth: depth as i8,
             node_type,
             age: env.age,
         });
@@ -301,7 +348,6 @@ fn quiescense(board: &Board, mut context: SearchContext, env: &mut SearchEnv) ->
     if env.step_node_and_check() { return 0; }
     
     let static_eval = eval(board);
-
     let mut best_value = static_eval;
 
     if best_value >= context.beta {
@@ -319,7 +365,6 @@ fn quiescense(board: &Board, mut context: SearchContext, env: &mut SearchEnv) ->
 
     for &candidate_move in &moves {
         if let Some(next_board) = board.make(candidate_move) {
-
             let score = -quiescense(&next_board, context.next_context(0), env);
 
             if env.stopped {
@@ -335,6 +380,7 @@ fn quiescense(board: &Board, mut context: SearchContext, env: &mut SearchEnv) ->
             }
         }
     }
+
     best_value
 }
 
@@ -365,6 +411,7 @@ fn search_fixed_depth(board: &Board, depth: i64, env: &mut SearchEnv) -> (i64, O
                 beta: -alpha,
                 depth: depth - 1,
                 ply: 1,
+                allow_nmp: true,
             };
 
             env.hash_history.push(board.game_state.curr_zobrist_key);
@@ -389,7 +436,7 @@ fn search_fixed_depth(board: &Board, depth: i64, env: &mut SearchEnv) -> (i64, O
     if !env.stopped && best_move.is_some() {
         env.tt.store(TTEntry {
             zobrist_key: board.game_state.curr_zobrist_key,
-            score: max_score as i16,
+            score: score_to_tt(max_score, 0),
             move_data: best_move.map(|m| m.data()).unwrap_or(0),
             depth: depth as i8,
             node_type: NodeType::Exact,
