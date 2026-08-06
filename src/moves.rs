@@ -18,12 +18,17 @@ impl PartialEq for Move {
 impl Eq for Move {}
 
 impl Move {
+
+    // Packs arguments, and calculates heuristics (Only mvv_lva for now.)
     pub fn new(board: &Board, from: u16, to: u16, flags: u16, piece: Piece) -> Self {
         let mut score = 0;
 
-        if flags & 0b0100 != 0 {
+        // Is a capture
+        if flags & move_flags::CAPTURE != 0 {
             let enemy_piece;
-            if flags & 0b0001 != 0 {
+
+            // Is an en-passant capture
+            if flags & move_flags::EP_CAPTURE != 0 {
                 enemy_piece = Piece::Pawn;
             }  else {
                 enemy_piece = board[to]
@@ -44,6 +49,7 @@ impl Move {
         self.data
     }
 
+    // Mostly used for initializing non-moves in the movelist, and for transposition tables.
     pub fn new_without_score(data: u16) -> Self {
         Move {
             data,
@@ -76,6 +82,7 @@ impl Move {
         self.ordering_score
     }
 
+    // Generates all possible moves, checks if the uci_string passed matches any of them. Returns None as a fallback.
     pub fn from_uci(board: &Board, uci_str: &str) -> Option<Move> {
         let moves = board.generate_pseudolegal_moves();
         for mv in moves {
@@ -89,6 +96,7 @@ impl Move {
     }
 }
 
+// UCI format.
 impl std::fmt::Display for Move {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let from_file = (b'a' + (self.from_sq() % 8) as u8) as char;
@@ -135,20 +143,15 @@ pub mod move_flags {
     pub const QUEEN_PROMO_CAPTURE: u16  = 0b1111;
 }
 
+// Implementing this as an array so it'll be stack allocated. Profiling showed a LOT of malloc calls in the movegen phase.
 #[derive(Clone, Copy)]
 pub struct MoveList {
     moves: [Move; 256],
-    len: u8,
+    len: u8, // pointer essentially
 }
 
 impl MoveList {
-    pub fn new() -> Self {
-        MoveList {
-            moves: [Move::new_without_score(0); 256], 
-            len: 0,
-        }
-    }
-
+    // write and increment pointer.
     pub fn push(&mut self, mv: Move) {
         self.moves[self.len as usize] = mv;
         self.len += 1;
@@ -162,6 +165,7 @@ impl MoveList {
         self.len == 0
     }
 
+    // doesn't clear anything, just resets the pointer to zero. In future, I'll probably create a singular movelist at the start of search and pass a reference to the movegen.
     pub fn clear(&mut self) {
         self.len = 0;
     }
@@ -169,7 +173,10 @@ impl MoveList {
 
 impl Default for MoveList {
     fn default() -> Self {
-        Self::new()
+        MoveList {
+            moves: [Move::new_without_score(0); 256], 
+            len: 0,
+        }
     }
 }
 
@@ -186,6 +193,7 @@ impl std::ops::DerefMut for MoveList {
         &mut self.moves[..self.len as usize]
     }
 }
+
 impl Board {
     pub fn make(&self, mv: Move) -> Option<Board> {
         let mut board = *self;
@@ -196,7 +204,8 @@ impl Board {
         let piece = board[from];
         let flags = mv.flags();
 
-        if flags & 0b1110 == 0b0010 {
+        // are we castling? either direction. 
+        if flags & 0b1110 == move_flags::KING_CASTLE {
             let transit_sq = match to {
                 2 => 3,   
                 6 => 5,   
@@ -204,17 +213,21 @@ impl Board {
                 62 => 61,
                 _ => unreachable!(),
             };
+            // We check if the to square is attacked at the end of the function anyway.
+            // Checking here might give a *tiny* speedup from the early return? Will test at some point but there are more pressing matters ^_^
             if self.is_attacked(from, enemy) || self.is_attacked(transit_sq, enemy) {
                 return None;
             }
         }
         
         board.game_state.inc_halfmoves();
+        // xoring out the old ep square.
         if let Some(old_ep_square) = board.game_state.en_passant_square {
             board.game_state.curr_zobrist_key ^= ZOBRIST_RANDOMS[768 + 16 + (old_ep_square % 8) as usize];
             board.game_state.en_passant_square = None;
         }
 
+        // capture handling!
         if mv.is_capture() {
             let captured_piece = board[to];
             if captured_piece != Piece::None {
@@ -226,10 +239,14 @@ impl Board {
             }
         }
 
+        // simple in the case where the piece is not a pawn, just move the fucking thing. if it is a pawn, we need to check for promotions, en passant, and double pushes.
         if piece != Piece::Pawn {
             board.move_piece(piece, side, from, to)
         } else {
             board.remove_piece(side, piece, from);
+
+            // Promotion handling!
+
             let piece_to_place = if mv.is_promo() {
                 promo_flag_parser(flags)
             } else {
@@ -237,24 +254,28 @@ impl Board {
             };
 
             board.place_piece(side, piece_to_place, to);
+
+            // Pawn moves always reset the clock.
             board.game_state.reset_halfmoves();
 
             if flags == move_flags::EP_CAPTURE {
-                board.remove_piece(enemy, Piece::Pawn, (to as u8 ^ 8) as u16);
+                board.remove_piece(enemy, Piece::Pawn, (to as u8 ^ 8) as u16); // I don't know why exactly this xor works, but it does. it's pretty neat!
             }
 
             if flags == move_flags::DOUBLE_PAWN_PUSH {
-                let ep_square = ((from + to) / 2) as u8;
+                let ep_square = ((from + to) / 2) as u8; // easiest way to calculate intermediate square without any side conditionals.
                 board.game_state.en_passant_square = Some(ep_square);
                 board.game_state.curr_zobrist_key ^= ZOBRIST_RANDOMS[768 + 16 + (ep_square % 8) as usize];
             }
         }
 
+        // Just doing this on every king/rook move for now. Might change the mechanism but for now it's cool.
         if piece == Piece::King || piece == Piece::Rook {
             board.update_castling_rights(from, to);
         } 
 
-        if flags & 0b1110 == 0b0010 {
+        // castling moves only encode the king move, gotta move the rook as well.
+        if flags & 0b1110 == move_flags::KING_CASTLE {
             match to {
                 2 => board.move_piece(Piece::Rook, side, 0, 3),
                 6 => board.move_piece(Piece::Rook, side, 7, 5),
@@ -264,16 +285,19 @@ impl Board {
             }
         }
 
+        // increment full move count
         if side == Side::Black {
             board.game_state.inc_count();
         }
 
+        // Switch the active side and update the hash.
         board.game_state.active_side = enemy;
         board.game_state.curr_zobrist_key ^= ZOBRIST_RANDOMS[768 + 16 + 8];
         
         let king_square = board.piece_bb[side as usize][Piece::King as usize].trailing_zeros() as u16;
         let is_legal = !board.is_attacked(king_square, enemy);
 
+        // There should be a way to filter obviously illegal moves that runs before this.
         if !is_legal {
             return None
         }
@@ -281,6 +305,7 @@ impl Board {
         Some(board)
     }
 
+    // helpers.
     fn remove_piece(&mut self, side: Side, piece: Piece, sq: u16) {
         let mask = Bitboard::one() << sq as usize;
         let side_idx = side as usize;
@@ -332,6 +357,7 @@ impl Board {
 
 }
 
+// another nice helper!
 fn promo_flag_parser(flag: u16) -> Piece {
     match flag & 0b0011 {
         0 => Piece::Knight,
