@@ -2,7 +2,7 @@ use std::{io::{self, BufRead}, sync::{Arc, Mutex, atomic::Ordering}, thread, tim
 
 use crate::{board::{Board, Side}, moves::{Move, MoveList}, search::{SearchControl, SearchEnv, TT, search}};
 
-const ENGINE_NAME: &str = "Dragnalus"; // there's another engine called ferrite unfortunately. at least i can make it a cool reference to Peak
+const ENGINE_NAME: &str = "Hexenzsene"; // there's another engine called ferrite unfortunately. at least i can make it a cool reference to Peak
 const ENGINE_AUTHOR: &str = "sunspcts";
 const DEFAULT_DEPTH: i64 = 8;
 const DEFAULT_HASH_MB: usize = 16;
@@ -303,7 +303,7 @@ mod tests {
     #[test]
     fn parse_uci_position_from_startpos() {
         let startpos_board = Board::new_from_fen(STARTPOS_FEN);
-        //Scotch my beloved <3
+        // Scotch my beloved <3
         let (board, _) = parse_uci_position(startpos_board, "position startpos moves e2e4 e7e5 g1f3 b8c6 d2d4");
         let fen_board = Board::new_from_fen("r1bqkbnr/pppp1ppp/2n5/4p3/3PP3/5N2/PPP2PPP/RNBQKB1R b KQkq d3 0 3");
 
