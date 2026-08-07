@@ -28,7 +28,7 @@ pub(super) fn negamax(board: &Board, mut context: SearchContext, env: &mut Searc
     let ply = (context.ply as usize).min(MAX_PLY - 1);
     board.generate_pseudolegal_moves(&mut env.move_lists[ply]);
     let mut moves = env.move_lists[ply];
-    
+
     sort_moves(&mut moves, tt_move, &env.killers[ply]);
 
     let mut legal_moves_count = 0;
@@ -54,6 +54,12 @@ pub(super) fn negamax(board: &Board, mut context: SearchContext, env: &mut Searc
             }
 
             if context.update_alpha(score) {
+                if !candidate_move.is_capture() {
+                    if candidate_move.data() != env.killers[ply][0] {
+                        env.killers[ply][1] = env.killers[ply][0];
+                        env.killers[ply][0] = candidate_move.data();
+                    }
+                }
                 break;
             }
         }

@@ -74,6 +74,7 @@ impl Move {
         }
     }
 
+    #[inline] // I'd be concerned if the compiler DIDN'T do this.
     pub fn data(&self) -> u16 {
         self.data
     }
