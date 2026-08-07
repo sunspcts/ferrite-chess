@@ -422,9 +422,19 @@ pub fn search(board: &Board, max_depth: i64, env: &mut SearchEnv) -> (i64, Optio
             global_best_move = Some(mv);
             global_best_score = score;
 
+            let score_str = if score > MATE_EVAL - 1000 {
+                let moves_to_mate = (MATE_EVAL - score + 1) / 2;
+                format!("mate {}", moves_to_mate)
+            } else if score < -MATE_EVAL + 1000 {
+                let moves_to_mate = (-MATE_EVAL - score) / 2;
+                format!("mate {}", moves_to_mate)
+            } else {
+                format!("cp {}", score)
+            };
+
             println!(
-                "info depth {} score cp {} nodes {} pv {}",
-                d, score, env.nodes_visited, mv
+                "info depth {} score {} nodes {} pv {}",
+                d, score_str, env.nodes_visited, mv
             );
         }
     }
