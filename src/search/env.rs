@@ -43,6 +43,7 @@ pub(super) struct SearchContext {
     pub beta: i64,
     pub ply: i64,
     pub depth: i64,
+    pub nmp_allowed: bool,
 }
 
 impl SearchContext {
@@ -52,6 +53,7 @@ impl SearchContext {
             beta: -self.alpha,
             ply: self.ply + 1,
             depth,
+            nmp_allowed: true
         }
     }
 

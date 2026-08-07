@@ -4,6 +4,7 @@ mod qsearch;
 mod tt;
 mod env;
 mod format;
+mod nmp;
 
 use negamax::negamax;
 pub use ordering::*;
@@ -37,6 +38,7 @@ fn search_fixed_depth(board: &Board, depth: i64, env: &mut SearchEnv) -> (i64, O
                 beta: -alpha,
                 depth: depth - 1,
                 ply: 1,
+                nmp_allowed: true
             };
 
             env.hash_history.push(board.game_state.curr_zobrist_key);
