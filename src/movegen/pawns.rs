@@ -66,7 +66,7 @@ impl Board {
         pawn_move_helper(self, double_pushes, offset_push * 2, move_flags::DOUBLE_PAWN_PUSH, false, moves);
         pawn_move_helper(self, captures_left, offset_cap_left, move_flags::CAPTURE, false, moves);
         pawn_move_helper(self, captures_right, offset_cap_right, move_flags::CAPTURE, false, moves);
-        pawn_move_helper(self, promo_pushes, offset_push, move_flags::QUIET, true, moves);
+        pawn_move_helper(self, promo_pushes, offset_push, 0, true, moves);
         pawn_move_helper(self, promo_caps_left, offset_cap_left, move_flags::CAPTURE, true, moves);
         pawn_move_helper(self, promo_caps_right, offset_cap_right, move_flags::CAPTURE, true, moves);
         pawn_move_helper(self, ep_capture_left, offset_cap_left, move_flags::EP_CAPTURE, false, moves);
