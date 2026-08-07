@@ -97,6 +97,7 @@ pub fn engine() {
                         age: search_age,
                         move_lists: [MoveList::default(); crate::search::MAX_PLY],
                         tt: &mut *tt_guard,
+                        killers: [[0; 2]; crate::search::MAX_PLY],
                     };
 
                     let (_score, best_move) = search(&new_board, max_depth, &mut env);

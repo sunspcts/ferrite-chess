@@ -28,7 +28,8 @@ pub(super) fn negamax(board: &Board, mut context: SearchContext, env: &mut Searc
     let ply = (context.ply as usize).min(MAX_PLY - 1);
     board.generate_pseudolegal_moves(&mut env.move_lists[ply]);
     let mut moves = env.move_lists[ply];
-    sort_moves(&mut moves, tt_move);
+    
+    sort_moves(&mut moves, tt_move, &env.killers[ply]);
 
     let mut legal_moves_count = 0;
     let mut max_score = i64::MIN;

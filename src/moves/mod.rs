@@ -48,7 +48,7 @@ impl PartialEq for Move {
 impl Eq for Move {}
 
 impl Move {
-    // Packs arguments, and calculates heuristics (Only mvv_lva for now.)
+    // Packs arguments, and calculates MVV-LVA heuristic.
     pub fn new(board: &Board, from: u16, to: u16, flags: u16, piece: Piece) -> Self {
         let mut score = 0;
 

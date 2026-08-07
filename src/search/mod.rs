@@ -24,7 +24,7 @@ fn search_fixed_depth(board: &Board, depth: i64, env: &mut SearchEnv) -> (i64, O
     let ply = 0;
     board.generate_pseudolegal_moves(&mut env.move_lists[ply]);
     let mut moves = env.move_lists[ply];
-    sort_moves(&mut moves, tt_move);
+    sort_moves(&mut moves, tt_move, &env.killers[ply]);
 
     let mut best_move = None;
     let mut max_score = i64::MIN;
