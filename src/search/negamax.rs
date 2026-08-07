@@ -25,6 +25,20 @@ pub(super) fn negamax(board: &Board, mut context: SearchContext, env: &mut Searc
         }
     }
 
+    if let Some((nmp_score, null_depth)) = self::nmp::nmp(board, &context, env) {
+        if !env.stopped {
+            env.tt.store(TTEntry {
+                zobrist_key: board.game_state.curr_zobrist_key,
+                score: score_to_tt(nmp_score, context.ply),
+                move_data: 0,
+                depth: null_depth as i8,
+                node_type: NodeType::LowerBound,
+                age: env.age,
+            });
+        }
+        return nmp_score;
+    }
+
     let ply = (context.ply as usize).min(MAX_PLY - 1);
     board.generate_pseudolegal_moves(&mut env.move_lists[ply]);
     let mut moves = env.move_lists[ply];
