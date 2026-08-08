@@ -45,6 +45,7 @@ pub(super) struct SearchContext {
     pub beta: i64,
     pub ply: i64,
     pub depth: i64,
+    #[allow(dead_code)]
     pub nmp_allowed: bool,
 }
 
