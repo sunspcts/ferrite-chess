@@ -4,31 +4,37 @@ use super::*;
 
 impl MoveList {
     pub fn score_moves(&mut self, board: &Board, tt_move: Option<Move>, killers: &[u16]) {
-            let len = self.len as usize;
-            for i in 0..len {
+        let len = self.len as usize;
+        for i in 0..len {
             self.scores[i] = score_move(self.moves[i], tt_move, killers, board);
         }
     }
-}
 
-#[inline]
-pub fn sort_qsearch_moves(moves: &mut MoveList, board: &Board) {
-    let len = moves.len();
-    if len <= 1 {
-        return;
+    pub fn score_qsearch_moves(&mut self, board: &Board) {
+        let len = self.len as usize;
+        for i in 0..len {
+            let mv = self.moves[i];
+            self.scores[i] = calc_mvv_lva_heuristic(board[mv.from_sq()], mv.captured_piece(board));
+        }
     }
 
-    let mut scored: [(i16, Move); 256] = [(0, Move::new_from_raw(0)); 256];
-    for i in 0..len {
-        let mv = moves[i];
-        let score = calc_mvv_lva_heuristic(board[mv.from_sq()], mv.captured_piece(board));
-        scored[i] = (score, mv);
-    }
+    pub fn sort_moves(&mut self) {
+        let len = self.len as usize;
+        if len <= 1 {
+            return;
+        }
 
-    scored[..len].sort_unstable_by(|a, b| b.0.cmp(&a.0));
+        let mut scored: [(i16, Move); 256] = [(0, Move::new_from_raw(0)); 256];
+        for i in 0..len {
+            scored[i] = (self.scores[i], self.moves[i]);
+        }
 
-    for i in 0..len {
-        moves[i] = scored[i].1;
+        scored[..len].sort_unstable_by(|a, b| b.0.cmp(&a.0));
+
+        for i in 0..len {
+            self.scores[i] = scored[i].0;
+            self.moves[i] = scored[i].1;
+        }
     }
 }
 

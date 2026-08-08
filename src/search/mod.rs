@@ -1,5 +1,4 @@
 mod negamax;
-mod ordering;
 mod qsearch;
 mod tt;
 mod env;
@@ -7,7 +6,7 @@ mod format;
 mod nmp;
 
 use negamax::negamax;
-pub use ordering::*;
+
 use qsearch::quiescense;
 pub use tt::*;
 pub use env::*;
@@ -23,15 +22,16 @@ fn search_fixed_depth(board: &Board, depth: i64, env: &mut SearchEnv) -> (i64, O
     let tt_move = env.tt.get(board.game_state.curr_zobrist_key).and_then(|e| e.best_move());
     let ply = 0;
     board.generate_pseudolegal_moves(&mut env.move_lists[ply]);
-    let mut moves = env.move_lists[ply];
-    sort_moves(&mut moves, tt_move, &env.killers[ply], board);
+    env.move_lists[ply].score_moves(board, tt_move, &env.killers[ply]);
+    env.move_lists[ply].sort_moves();
+    let moves = env.move_lists[ply];
 
     let mut best_move = None;
     let mut max_score = i64::MIN;
     let mut alpha = -1_000_000;
     let beta = 1_000_000;
 
-    for &candidate_move in &moves {
+    for &candidate_move in moves.iter() {
         if let Some(next_board) = board.make(candidate_move) {
             let context = SearchContext {
                 alpha: -beta,
