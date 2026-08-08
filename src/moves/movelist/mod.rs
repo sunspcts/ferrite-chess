@@ -1,9 +1,12 @@
+mod score;
+
 use super::Move;
 
 // Implementing this as an array so it'll be stack allocated. Profiling showed a LOT of malloc calls in the movegen phase.
 #[derive(Clone, Copy)]
 pub struct MoveList {
     moves: [Move; 256],
+    scores: [i16; 256],
     len: u8, // pointer essentially
 }
 
@@ -53,6 +56,7 @@ impl Default for MoveList {
     fn default() -> Self {
         MoveList {
             moves: [Move::new_from_raw(0); 256],
+            scores: [0; 256],
             len: 0,
         }
     }

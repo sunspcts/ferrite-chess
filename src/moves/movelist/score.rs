@@ -1,0 +1,54 @@
+use crate::{board::Board, heuristics::calc_mvv_lva_heuristic};
+
+use super::*;
+
+impl MoveList {
+    pub fn score_moves(&mut self, board: &Board, tt_move: Option<Move>, killers: &[u16]) {
+            let len = self.len as usize;
+            for i in 0..len {
+            self.scores[i] = score_move(self.moves[i], tt_move, killers, board);
+        }
+    }
+}
+
+#[inline]
+pub fn sort_qsearch_moves(moves: &mut MoveList, board: &Board) {
+    let len = moves.len();
+    if len <= 1 {
+        return;
+    }
+
+    let mut scored: [(i16, Move); 256] = [(0, Move::new_from_raw(0)); 256];
+    for i in 0..len {
+        let mv = moves[i];
+        let score = calc_mvv_lva_heuristic(board[mv.from_sq()], mv.captured_piece(board));
+        scored[i] = (score, mv);
+    }
+
+    scored[..len].sort_unstable_by(|a, b| b.0.cmp(&a.0));
+
+    for i in 0..len {
+        moves[i] = scored[i].1;
+    }
+}
+
+#[inline]
+fn score_move(mv: Move, tt_move: Option<Move>, killers: &[u16], board: &Board) -> i16 {
+    if Some(mv) == tt_move {
+        return i16::MAX;
+    }
+    if mv.is_capture() {
+        let piece = board[mv.from_sq()];
+        let captured = mv.captured_piece(board);
+
+        let mvv_lva = calc_mvv_lva_heuristic(piece, captured);
+        return 10000 + mvv_lva;
+    }
+    if mv.data() == killers[0] {
+        return 9000;
+    }
+    if mv.data() == killers[1] {
+        return 8999;
+    }
+    0
+}
