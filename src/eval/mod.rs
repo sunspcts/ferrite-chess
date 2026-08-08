@@ -1,4 +1,5 @@
 mod psts;
+mod pawn_structure;
 
 use psts::*;
 use crate::board::Board;
