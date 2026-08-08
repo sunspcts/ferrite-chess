@@ -1,3 +1,5 @@
+use crate::bitboard::Bitboard;
+
 //PeSTO middlegame tables.
 pub(super) const MG_PAWN_PST: [i64; 64] = [
       0,   0,   0,   0,   0,   0,  0,   0, // 8
@@ -133,3 +135,25 @@ pub(super) const EG_KING_PST: [i64; 64] = [
 
 pub(super) const MG_PSTS: [[i64; 64]; 6] = [MG_PAWN_PST, MG_KNIGHT_PST, MG_BISHOP_PST, MG_ROOK_PST, MG_QUEEN_PST, MG_KING_PST];
 pub(super) const EG_PSTS: [[i64; 64]; 6] = [EG_PAWN_PST, EG_KNIGHT_PST, EG_BISHOP_PST, EG_ROOK_PST, EG_QUEEN_PST, EG_KING_PST];
+
+pub(super) const PIECE_PHASE: [i64; 6] = [0, 1, 1, 2, 4, 0];
+pub(super) const MAX_PHASE: i64 = 24;
+
+pub(super) fn calc_tapered_score(piece: usize, mg_phase: i64, bitboard: Bitboard, magic: u16, piece_value: i64) -> i64 {
+    let mut mg_score = 0;
+    for sq in bitboard {
+        mg_score += MG_PSTS[piece][(sq ^ magic) as usize];
+    }
+
+    let mut eg_score = 0;
+    for sq in bitboard {
+        eg_score += EG_PSTS[piece][(sq ^ magic) as usize];
+    }
+
+    let count = bitboard.count_ones() as i64;
+    let total_material = piece_value * count;
+    let eg_phase = MAX_PHASE - mg_phase;
+    let tapered_pst = ((mg_score * mg_phase) + (eg_score * eg_phase)) / MAX_PHASE;
+
+    total_material + tapered_pst
+}

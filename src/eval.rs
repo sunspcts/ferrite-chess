@@ -2,7 +2,7 @@ mod psts;
 
 use psts::*;
 
-use crate::{board::Board, piece::Piece};
+use crate::board::Board;
 
 const PAWN_VALUE: i64 = 82;
 const KNIGHT_VALUE: i64 = 337;
@@ -10,45 +10,25 @@ const BISHOP_VALUE: i64 = 365;
 const ROOK_VALUE: i64 = 477;
 const QUEEN_VALUE: i64 = 1025;
 
+const PIECE_VALUES: [i64; 6] = [PAWN_VALUE, KNIGHT_VALUE, BISHOP_VALUE, ROOK_VALUE, QUEEN_VALUE, 0];
+
 pub fn eval(board: &Board) -> i64 {
+    let mut phase = 0;
+    for color in 0..2 {
+        for (piece, bb) in board.piece_bb[color].iter().enumerate() {
+            phase += PIECE_PHASE[piece] * bb.count_ones() as i64;
+        }
+    }
+    let mg_phase = phase.min(MAX_PHASE);
+
     let mut score = 0;
 
-    for sq in board.piece_bb[0][Piece::Pawn as usize] {
-        score += PAWN_VALUE + MG_PAWN_PST[(sq ^ 56) as usize];
-    }
-    for sq in board.piece_bb[0][Piece::Knight as usize] {
-        score += KNIGHT_VALUE + MG_KNIGHT_PST[(sq ^ 56) as usize];
-    }
-    for sq in board.piece_bb[0][Piece::Bishop as usize] {
-        score += BISHOP_VALUE + MG_BISHOP_PST[(sq ^ 56) as usize];
-    }
-    for sq in board.piece_bb[0][Piece::Rook as usize] {
-        score += ROOK_VALUE + MG_ROOK_PST[(sq ^ 56) as usize];
-    }
-    for sq in board.piece_bb[0][Piece::Queen as usize] {
-        score += QUEEN_VALUE + MG_QUEEN_PST[(sq ^ 56) as usize];
-    }
-    for sq in board.piece_bb[0][Piece::King as usize] {
-        score += MG_KING_PST[(sq ^ 56) as usize];
+    for (piece, bb) in board.piece_bb[0].iter().enumerate() {
+        score += calc_tapered_score(piece, mg_phase, *bb, 56, PIECE_VALUES[piece]);
     }
 
-    for sq in board.piece_bb[1][Piece::Pawn as usize] {
-        score -= PAWN_VALUE + MG_PAWN_PST[sq as usize];
-    }
-    for sq in board.piece_bb[1][Piece::Knight as usize] {
-        score -= KNIGHT_VALUE + MG_KNIGHT_PST[sq as usize];
-    }
-    for sq in board.piece_bb[1][Piece::Bishop as usize] {
-        score -= BISHOP_VALUE + MG_BISHOP_PST[sq as usize];
-    }
-    for sq in board.piece_bb[1][Piece::Rook as usize] {
-        score -= ROOK_VALUE + MG_ROOK_PST[sq as usize];
-    }
-    for sq in board.piece_bb[1][Piece::Queen as usize] {
-        score -= QUEEN_VALUE + MG_QUEEN_PST[sq as usize];
-    }
-    for sq in board.piece_bb[1][Piece::King as usize] {
-        score -= MG_KING_PST[sq as usize];
+    for (piece, bb) in board.piece_bb[1].iter().enumerate() {
+        score -= calc_tapered_score(piece, mg_phase, *bb, 0, PIECE_VALUES[piece]);
     }
 
     score * board.side_to_move_multiplier()
