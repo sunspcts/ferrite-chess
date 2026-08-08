@@ -57,14 +57,14 @@ pub(super) const MG_QUEEN_PST: [i64; 64] = [
 ];
 
 pub(super) const MG_KING_PST: [i64; 64] = [
-    -50, -40, -40, -50, -50, -40, -40, -50,
-    -30, -40, -40, -50, -50, -40, -40, -30,
-    -30, -40, -40, -50, -50, -40, -40, -30,
-    -30, -40, -40, -50, -50, -40, -40, -30,
-    -20, -30, -30, -40, -40, -30, -30, -20,
-    -10, -20, -20, -20, -20, -20, -20, -10,
-     20,  20,   0,   0,   0,   0,  20,  20,
-     20,  30,  10,   0,   0,  10,  30,  20,
+    -65,  23,  16, -15, -56, -34,   2,  13,
+     29,  -1, -20,  -7,  -8,  -4, -38, -29,
+     -9,  24,   2, -16, -20,   6,  22, -22,
+    -17, -20, -12, -27, -30, -25, -14, -36,
+    -49,  -1, -27, -39, -46, -44, -33, -51,
+    -14, -14, -22, -46, -44, -30, -15, -27,
+      1,   7,  -8, -64, -43, -16,   9,   8,
+    -15,  36,  12, -54,   8, -28,  24,  14,
 ];
 
 pub(super) const EG_PAWN_PST: [i64; 64] = [
@@ -139,21 +139,22 @@ pub(super) const EG_PSTS: [[i64; 64]; 6] = [EG_PAWN_PST, EG_KNIGHT_PST, EG_BISHO
 pub(super) const PIECE_PHASE: [i64; 6] = [0, 1, 1, 2, 4, 0];
 pub(super) const MAX_PHASE: i64 = 24;
 
-pub(super) fn calc_tapered_score(piece: usize, mg_phase: i64, bitboard: Bitboard, magic: u16, piece_value: i64) -> i64 {
+pub(super) const MG_PIECE_VALUES: [i64; 6] = [82, 337, 365, 477, 1025, 0];
+pub(super) const EG_PIECE_VALUES: [i64; 6] = [94, 281, 297, 512, 936, 0];
+
+pub(super) fn calc_tapered_score(piece: usize, mg_phase: i64, bitboard: Bitboard, magic: u16) -> i64 {
     let mut mg_score = 0;
+    let mg_val = MG_PIECE_VALUES[piece];
     for sq in bitboard {
-        mg_score += MG_PSTS[piece][(sq ^ magic) as usize];
+        mg_score += mg_val + MG_PSTS[piece][(sq ^ magic) as usize];
     }
 
     let mut eg_score = 0;
+    let eg_val = EG_PIECE_VALUES[piece];
     for sq in bitboard {
-        eg_score += EG_PSTS[piece][(sq ^ magic) as usize];
+        eg_score += eg_val + EG_PSTS[piece][(sq ^ magic) as usize];
     }
 
-    let count = bitboard.count_ones() as i64;
-    let total_material = piece_value * count;
     let eg_phase = MAX_PHASE - mg_phase;
-    let tapered_pst = ((mg_score * mg_phase) + (eg_score * eg_phase)) / MAX_PHASE;
-
-    total_material + tapered_pst
+    ((mg_score * mg_phase) + (eg_score * eg_phase)) / MAX_PHASE
 }
