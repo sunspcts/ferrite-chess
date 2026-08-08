@@ -1,4 +1,4 @@
-use crate::{board::Board, heuristics::calc_mvv_lva_heuristic};
+use crate::{board::Board, heuristics::calc_mvv_lva_heuristic, moves::move_flags};
 
 use super::*;
 
@@ -42,6 +42,9 @@ impl MoveList {
 fn score_move(mv: Move, tt_move: Option<Move>, killers: &[u16], board: &Board) -> i16 {
     if Some(mv) == tt_move {
         return i16::MAX;
+    }
+    if mv.flags() & move_flags::QUEEN_PROMO == move_flags::QUEEN_PROMO {
+        return 20000;
     }
     if mv.is_capture() {
         let piece = board[mv.from_sq()];
