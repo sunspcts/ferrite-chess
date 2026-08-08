@@ -3,10 +3,10 @@ use crate::{board::Board, heuristics::calc_mvv_lva_heuristic, moves::move_flags}
 use super::*;
 
 impl MoveList {
-    pub fn score_moves(&mut self, board: &Board, tt_move: Option<Move>, killers: &[u16]) {
+    pub fn score_moves(&mut self, board: &Board, tt_move: Option<Move>, killers: &[u16], history: &[[[i32; 64]; 64]; 2]) {
         let len = self.len as usize;
         for i in 0..len {
-            self.scores[i] = score_move(self.moves[i], tt_move, killers, board);
+            self.scores[i] = score_move(self.moves[i], tt_move, killers, history, board);
         }
     }
 
@@ -39,7 +39,13 @@ impl MoveList {
 }
 
 #[inline]
-fn score_move(mv: Move, tt_move: Option<Move>, killers: &[u16], board: &Board) -> i16 {
+fn score_move(
+    mv: Move,
+    tt_move: Option<Move>,
+    killers: &[u16],
+    history: &[[[i32; 64]; 64]; 2],
+    board: &Board,
+) -> i16 {
     if Some(mv) == tt_move {
         return i16::MAX;
     }
@@ -59,5 +65,7 @@ fn score_move(mv: Move, tt_move: Option<Move>, killers: &[u16], board: &Board) -
     if mv.data() == killers[1] {
         return 8999;
     }
-    0
+    let side = board.game_state.active_side as usize;
+    let hist_val = history[side][mv.from_sq() as usize][mv.to_sq() as usize];
+    (hist_val.min(8000)) as i16
 }

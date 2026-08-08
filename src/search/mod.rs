@@ -22,7 +22,7 @@ fn search_fixed_depth(board: &Board, depth: i64, env: &mut SearchEnv) -> (i64, O
     let tt_move = env.tt.get(board.game_state.curr_zobrist_key).and_then(|e| e.best_move());
     let ply = 0;
     board.generate_pseudolegal_moves(&mut env.move_lists[ply]);
-    env.move_lists[ply].score_moves(board, tt_move, &env.killers[ply]);
+    env.move_lists[ply].score_moves(board, tt_move, &env.killers[ply], &env.history);
     let moves_count = env.move_lists[ply].len();
 
     let mut best_move = None;
