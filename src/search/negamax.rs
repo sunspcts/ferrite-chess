@@ -28,15 +28,15 @@ pub(super) fn negamax(board: &Board, mut context: SearchContext, env: &mut Searc
     let ply = (context.ply as usize).min(MAX_PLY - 1);
     board.generate_pseudolegal_moves(&mut env.move_lists[ply]);
     env.move_lists[ply].score_moves(board, tt_move, &env.killers[ply]);
-    env.move_lists[ply].sort_moves();
-    let moves = env.move_lists[ply];
+    let moves_count = env.move_lists[ply].len();
 
     let mut legal_moves_count = 0;
     let mut max_score = i64::MIN;
     let mut best_move = None;
     let old_alpha = context.alpha;
 
-    for &candidate_move in &moves {
+    for i in 0..moves_count {
+        let candidate_move = env.move_lists[ply].pick_best(i);
         if let Some(next_board) = board.make(candidate_move) {
             legal_moves_count += 1;
 

@@ -20,10 +20,10 @@ pub(super) fn quiescense(board: &Board, mut context: SearchContext, env: &mut Se
     board.generate_pseudolegal_moves(&mut env.move_lists[ply]);
     env.move_lists[ply].retain(|mv| mv.is_capture() || mv.is_promo());
     env.move_lists[ply].score_qsearch_moves(board);
-    env.move_lists[ply].sort_moves();
-    let moves = env.move_lists[ply];
+    let moves_count = env.move_lists[ply].len();
 
-    for &candidate_move in &moves {
+    for i in 0..moves_count {
+        let candidate_move = env.move_lists[ply].pick_best(i);
         if let Some(next_board) = board.make(candidate_move) {
             let score = -quiescense(&next_board, context.next_context(0), env);
 
