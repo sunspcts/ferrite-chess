@@ -14,6 +14,7 @@ pub struct SearchEnv<'a> {
     pub age: u8,
     pub tt: &'a mut TT,
     pub killers: [[u16; 2]; MAX_PLY],
+    pub history: [[[i32; 64]; 64]; 2],
     pub move_lists: [MoveList; MAX_PLY],
 }
 

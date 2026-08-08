@@ -98,6 +98,7 @@ pub fn engine() {
                         move_lists: [MoveList::default(); crate::search::MAX_PLY],
                         tt: &mut *tt_guard,
                         killers: [[0; 2]; crate::search::MAX_PLY],
+                        history: [[[0; 64]; 64]; 2],
                     };
 
                     let (_score, best_move) = search(&new_board, max_depth, &mut env);
