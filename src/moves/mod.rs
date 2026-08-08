@@ -1,4 +1,4 @@
-use crate::{board::*, heuristics::*, piece::Piece};
+use crate::{board::*, piece::Piece};
 #[cfg(test)]
 mod tests;
 
@@ -37,7 +37,7 @@ pub mod move_flags {
 }
 
 #[derive(Clone, Copy, Debug)]
-pub struct Move {data: u16, ordering_score: i16}
+pub struct Move {data: u16}
 
 impl PartialEq for Move {
     fn eq(&self, other: &Self) -> bool {
@@ -48,29 +48,12 @@ impl PartialEq for Move {
 impl Eq for Move {}
 
 impl Move {
-    // Packs arguments, and calculates MVV-LVA heuristic.
-    pub fn new(board: &Board, from: u16, to: u16, flags: u16, piece: Piece) -> Self {
-        let mut score = 0;
-
-        // Is a capture
-        if flags & move_flags::CAPTURE != 0 {
-            let enemy_piece;
-
-            // Is an en-passant capture
-            if flags & move_flags::EP_CAPTURE != 0 {
-                enemy_piece = Piece::Pawn;
-            }  else {
-                enemy_piece = board[to]
-            }
-
-            score += calc_mvv_lva_heuristic(piece, enemy_piece)
-        }
-
+    // Packs arguments
+    pub fn new(_board: &Board, from: u16, to: u16, flags: u16, _piece: Piece) -> Self {
         Move {
             data: {
                 (from) | (to << 6) | (flags << 12)
             },
-            ordering_score: score
         }
     }
 
@@ -80,10 +63,9 @@ impl Move {
     }
 
     // Mostly used for initializing non-moves in the movelist, and for transposition tables.
-    pub fn new_without_score(data: u16) -> Self {
+    pub fn new_from_raw(data: u16) -> Self {
         Move {
             data,
-            ordering_score: 0,
         }
     }
 
@@ -114,9 +96,5 @@ impl Move {
         } else {
             board[self.to_sq()]
         }
-    }
-
-    pub fn score(self) -> i16 {
-        self.ordering_score
     }
 }

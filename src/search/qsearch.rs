@@ -20,7 +20,7 @@ pub(super) fn quiescense(board: &Board, mut context: SearchContext, env: &mut Se
     board.generate_pseudolegal_moves(&mut env.move_lists[ply]);
     let mut moves = env.move_lists[ply];
     moves.retain(|mv| mv.is_capture() || mv.is_promo());
-    sort_qsearch_moves(&mut moves);
+    sort_qsearch_moves(&mut moves, board);
 
     for &candidate_move in &moves {
         if let Some(next_board) = board.make(candidate_move) {

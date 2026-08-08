@@ -49,7 +49,7 @@ impl TTEntry {
         if self.move_data == 0 {
             None
         } else {
-            Some(Move::new_without_score(self.move_data))
+            Some(Move::new_from_raw(self.move_data))
         }
     }
 

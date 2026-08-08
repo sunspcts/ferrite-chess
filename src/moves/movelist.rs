@@ -52,7 +52,7 @@ impl MoveList {
 impl Default for MoveList {
     fn default() -> Self {
         MoveList {
-            moves: [Move::new_without_score(0); 256],
+            moves: [Move::new_from_raw(0); 256],
             len: 0,
         }
     }
