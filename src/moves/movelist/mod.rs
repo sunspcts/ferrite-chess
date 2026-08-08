@@ -1,4 +1,5 @@
 mod score;
+mod pick;
 
 use super::Move;
 
@@ -42,13 +43,19 @@ impl MoveList {
         for read in 0..original_len {
             if f(&self.moves[read]) {
                 if read != write {
-                    self.moves.swap(read, write);
+                    self.swap(read, write);
                 }
                 write += 1;
             }
         }
 
         self.len = write as u8;
+    }
+
+    #[inline]
+    pub fn swap(&mut self, i: usize, j: usize) {
+        self.moves.swap(i, j);
+        self.scores.swap(i, j);
     }
 }
 
