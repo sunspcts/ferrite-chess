@@ -21,7 +21,7 @@ const ADJACENT_FILE_MASKS: [Bitboard; 8] = [
 ];
 
 #[inline]
-pub fn is_isolated(sq: u16, friendly_pawns: Bitboard) {
-    let file = (sq & 0b1111) as usize;
-    friendly_pawns & ADJACENT_FILE_MASKS[file] == Bitboard::zero();
+pub fn is_isolated(sq: u16, friendly_pawns: Bitboard) -> bool {
+    let file = (sq & 0b0111) as usize;
+    (friendly_pawns & ADJACENT_FILE_MASKS[file]) == Bitboard::zero()
 }
