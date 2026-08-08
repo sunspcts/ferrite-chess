@@ -4,6 +4,7 @@ mod tt;
 mod env;
 mod format;
 mod nmp;
+mod history_gravity;
 
 use negamax::negamax;
 

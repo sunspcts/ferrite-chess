@@ -67,5 +67,5 @@ fn score_move(
     }
     let side = board.game_state.active_side as usize;
     let hist_val = history[side][mv.from_sq() as usize][mv.to_sq() as usize];
-    (hist_val.min(8000)) as i16
+    hist_val as i16
 }

@@ -35,10 +35,19 @@ pub(super) fn negamax(board: &Board, mut context: SearchContext, env: &mut Searc
     let mut best_move = None;
     let old_alpha = context.alpha;
 
+    let mut quiet_moves_tried: [Move; 64] = [Move::new_from_raw(0); 64];
+    let mut quiet_count = 0;
+
     for i in 0..moves_count {
         let candidate_move = env.move_lists[ply].pick_best(i);
         if let Some(next_board) = board.make(candidate_move) {
             legal_moves_count += 1;
+            let is_quiet = !candidate_move.is_capture();
+
+            if is_quiet && quiet_count < 64 {
+                quiet_moves_tried[quiet_count] = candidate_move;
+                quiet_count += 1;
+            }
 
             env.hash_history.push(board.game_state.curr_zobrist_key);
             let score = -negamax(&next_board, context.next_context(depth - 1), env);
@@ -54,15 +63,19 @@ pub(super) fn negamax(board: &Board, mut context: SearchContext, env: &mut Searc
             }
 
             if context.update_alpha(score) {
-                if !candidate_move.is_capture() {
+                if is_quiet {
                     if candidate_move.data() != env.killers[ply][0] {
                         env.killers[ply][1] = env.killers[ply][0];
                         env.killers[ply][0] = candidate_move.data();
                     }
                     let side = board.game_state.active_side as usize;
-                    let from = candidate_move.from_sq() as usize;
-                    let to = candidate_move.to_sq() as usize;
-                    env.history[side][from][to] += (depth * depth) as i32;
+                    history_gravity::update_history_cutoff(
+                        &mut env.history,
+                        side,
+                        candidate_move,
+                        &quiet_moves_tried[..quiet_count - 1],
+                        depth,
+                    );
                 }
                 break;
             }
